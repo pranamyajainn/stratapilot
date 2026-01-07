@@ -1,0 +1,7 @@
+{
+  "name": "# StrataPilot Creative Intelligence & ROI Uplift Platform",
+  "description": "The StrataPilot Creative Intelligence Platform. Upload video ads (TV/Digital), images, or content to generate deep persona breakdowns, ad diagnostics, and campaign strategies using Gemini 2.5.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
