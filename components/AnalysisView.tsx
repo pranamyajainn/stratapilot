@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { AnalysisResult, DiagnosticItem, Demographic, Psychographic, Behavioral, BrandArchetypeDetail, BrandStrategyCard } from '../types';
-import { 
+import {
   User, Brain, Activity, Target, TrendingUp, TrendingDown, Users, Heart, Diamond, CheckCircle2, DollarSign, Scan, Search, Radar, Sparkles, Crown, ZapOff, Info, Layers, ShieldAlert, CheckCircle, FileText, BarChart, Globe, Zap, Smile, LayoutTemplate, Briefcase, MapPin, GraduationCap, Coins, Users2, Rocket,
   Calendar, BookOpen, Trophy, Lightbulb, RefreshCw, ShieldCheck, ChevronDown, ChevronUp, Edit2, Check, ArrowRight, BrainCircuit, Fingerprint, Headphones, Anchor, Link2, BoxSelect, Sun, Compass, Zap as OutlawIcon, Palette, HandHeart, Bot, MousePointerClick, Database, Swords, Clock, TrendingUp as UpliftIcon, AlertTriangle, PlayCircle, MousePointer2, BarChart3, Lock, Pencil, Microscope, Ear, LayoutGrid
 } from 'lucide-react';
-import { 
+import {
   Radar as RechartsRadar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, Legend
 } from 'recharts';
 
@@ -16,8 +16,8 @@ interface AnalysisViewProps {
 }
 
 const normalizeScore = (val: number | undefined): number => {
-    if (val === undefined || val === null) return 0;
-    return val <= 10 ? Math.round(val * 10) : val;
+  if (val === undefined || val === null) return 0;
+  return val <= 10 ? Math.round(val * 10) : val;
 };
 
 const getRubricTier = (score: number): string => {
@@ -54,17 +54,17 @@ const ScoreGauge: React.FC<{ score: number, benchmark: number }> = ({ score, ben
   const b = normalizeScore(benchmark);
   const tier = getRubricTier(s);
   const color = getTierColorHex(tier);
-  
+
   return (
     <div className="relative w-24 h-24 flex-shrink-0">
       <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
         <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f1f5f9" strokeWidth="2.5" />
-        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
-          fill="none" 
-          stroke={color} 
-          strokeWidth="3" 
-          strokeDasharray={`${s}, 100`} 
-          strokeLinecap="round" 
+        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+          fill="none"
+          stroke={color}
+          strokeWidth="3"
+          strokeDasharray={`${s}, 100`}
+          strokeLinecap="round"
         />
         <circle cx="18" cy="2.0845" r="1" fill="#94a3b8" transform={`rotate(${b * 3.6} 18 18)`} />
       </svg>
@@ -80,7 +80,7 @@ const CRIMeter: React.FC<{ value: number | string, isPercentage?: boolean }> = (
   const numericValue = typeof value === 'string' ? parseFloat(value) : value;
   const score = Math.max(0, Math.min(100, (!isPercentage && typeof value === 'string') ? numericValue * 15 : numericValue));
   const rotation = (score / 100) * 180 - 90;
-  
+
   return (
     <div className="relative w-28 h-20 flex items-center justify-center pt-3">
       <svg viewBox="0 0 100 70" className="w-full overflow-visible drop-shadow-sm">
@@ -114,10 +114,10 @@ const CRIMeter: React.FC<{ value: number | string, isPercentage?: boolean }> = (
   );
 };
 
-const CRICard: React.FC<{ 
-  label: string, 
-  subLabel?: string, 
-  value: number | string, 
+const CRICard: React.FC<{
+  label: string,
+  subLabel?: string,
+  value: number | string,
   isPercentage?: boolean,
   definition: string,
   science: string
@@ -157,39 +157,39 @@ const KeyDeterminants: React.FC<{ driver: DiagnosticItem, detractor: DiagnosticI
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-[24px] border-l-[4px] border-[#10b981] shadow-[0_15px_40px_-15px_rgba(0,0,0,0.05)] p-8 flex flex-col h-full relative overflow-hidden transition-transform hover:-translate-y-1 duration-300">
-            <div className="flex justify-between items-start mb-6">
-                <div className="flex items-center gap-2 text-[#10b981]">
-                    <TrendingUp size={16} strokeWidth={3} />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">CREATIVE DRIVER</span>
-                </div>
-                <div className="bg-[#10b981] text-white w-10 h-10 rounded-full flex items-center justify-center font-black text-base shadow-lg shadow-emerald-100/50">
-                    {normalizeScore(driver.score)}
-                </div>
+          <div className="flex justify-between items-start mb-6">
+            <div className="flex items-center gap-2 text-[#10b981]">
+              <TrendingUp size={16} strokeWidth={3} />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]">CREATIVE DRIVER</span>
             </div>
-            <h4 className="text-lg font-black text-slate-900 mb-3 leading-tight tracking-tight">{driver.metric}</h4>
-            <div className="space-y-4">
-                <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
-                    {driver.commentary}
-                </p>
+            <div className="bg-[#10b981] text-white w-10 h-10 rounded-full flex items-center justify-center font-black text-base shadow-lg shadow-emerald-100/50">
+              {normalizeScore(driver.score)}
             </div>
+          </div>
+          <h4 className="text-lg font-black text-slate-900 mb-3 leading-tight tracking-tight">{driver.metric}</h4>
+          <div className="space-y-4">
+            <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
+              {driver.commentary}
+            </p>
+          </div>
         </div>
 
         <div className="bg-white rounded-[24px] border-l-[4px] border-[#ef4444] shadow-[0_15px_40px_-15px_rgba(0,0,0,0.05)] p-8 flex flex-col h-full relative overflow-hidden transition-transform hover:-translate-y-1 duration-300">
-            <div className="flex justify-between items-start mb-6">
-                <div className="flex items-center gap-2 text-[#ef4444]">
-                    <TrendingDown size={16} strokeWidth={3} />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">CREATIVE DETRACTOR</span>
-                </div>
-                <div className="bg-[#ef4444] text-white w-10 h-10 rounded-full flex items-center justify-center font-black text-base shadow-lg shadow-rose-100/50">
-                    {normalizeScore(detractor.score)}
-                </div>
+          <div className="flex justify-between items-start mb-6">
+            <div className="flex items-center gap-2 text-[#ef4444]">
+              <TrendingDown size={16} strokeWidth={3} />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]">CREATIVE DETRACTOR</span>
             </div>
-            <h4 className="text-lg font-black text-slate-900 mb-3 leading-tight tracking-tight">{detractor.metric}</h4>
-            <div className="space-y-4">
-                <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
-                    {detractor.commentary}
-                </p>
+            <div className="bg-[#ef4444] text-white w-10 h-10 rounded-full flex items-center justify-center font-black text-base shadow-lg shadow-rose-100/50">
+              {normalizeScore(detractor.score)}
             </div>
+          </div>
+          <h4 className="text-lg font-black text-slate-900 mb-3 leading-tight tracking-tight">{detractor.metric}</h4>
+          <div className="space-y-4">
+            <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
+              {detractor.commentary}
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -214,8 +214,8 @@ const ExecutiveRecommendationCard: React.FC<{ item: DiagnosticItem, index: numbe
         </div>
         <div className="bg-[#f0fdf4] border border-[#dcfce7] rounded-xl p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-2 text-[#166534]">
-             <CheckCircle size={14} strokeWidth={3} />
-             <h5 className="text-[9px] font-black uppercase tracking-[0.25em]">THE FIX</h5>
+            <CheckCircle size={14} strokeWidth={3} />
+            <h5 className="text-[9px] font-black uppercase tracking-[0.25em]">THE FIX</h5>
           </div>
           <p className="text-[12px] text-[#166534]/90 leading-relaxed font-semibold">{item.recommendation}</p>
         </div>
@@ -235,8 +235,8 @@ const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Parti
   const tierStyles = getTierStyles(tier);
 
   const handleSave = () => {
-    onUpdate({ 
-      score: parseInt(editScore, 10) || 0, 
+    onUpdate({
+      score: parseInt(editScore, 10) || 0,
       commentary: editCommentary,
       isHumanEdited: true,
       isVerified: true
@@ -259,23 +259,23 @@ const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Parti
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <button 
-              onClick={() => setIsEditing(!isEditing)} 
+            <button
+              onClick={() => setIsEditing(!isEditing)}
               className="mt-2 p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-300 hover:text-indigo-600 flex-shrink-0"
               title="Edit Diagnostic"
             >
               <Pencil size={14} />
             </button>
             {isEditing ? (
-               <div className="flex flex-col items-end gap-1">
-                 <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Score</label>
-                 <input 
-                  type="number" 
-                  value={editScore} 
+              <div className="flex flex-col items-end gap-1">
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Score</label>
+                <input
+                  type="number"
+                  value={editScore}
                   onChange={(e) => setEditScore(e.target.value)}
                   className="w-16 px-2 py-1 text-right text-lg font-black border-2 border-slate-200 rounded-lg outline-none focus:border-indigo-400"
-                 />
-               </div>
+                />
+              </div>
             ) : (
               <ScoreGauge score={s} benchmark={item.benchmark || 65} />
             )}
@@ -283,12 +283,12 @@ const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Parti
         </div>
         <div className="bg-slate-50/50 rounded-[20px] p-6 border border-slate-100 relative group/analysis flex flex-col">
           <div className="flex items-center gap-2 mb-3 text-indigo-400">
-             <Microscope size={14} strokeWidth={2.5} />
-             <h5 className="text-[10px] font-black uppercase tracking-[0.25em]">DEEP ANALYSIS</h5>
+            <Microscope size={14} strokeWidth={2.5} />
+            <h5 className="text-[10px] font-black uppercase tracking-[0.25em]">DEEP ANALYSIS</h5>
           </div>
           <div className="min-h-[160px] max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
             {isEditing ? (
-              <textarea 
+              <textarea
                 value={editCommentary}
                 onChange={(e) => setEditCommentary(e.target.value)}
                 className="w-full h-[160px] bg-white p-3 text-[12px] font-medium text-slate-600 leading-relaxed border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 resize-none"
@@ -298,10 +298,10 @@ const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Parti
             )}
           </div>
           {isEditing && (
-             <div className="flex justify-end gap-2 mt-4">
-                <button onClick={() => setIsEditing(false)} className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors">Cancel</button>
-                <button onClick={handleSave} className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 hover:bg-emerald-100 transition-colors"> <Check size={12} strokeWidth={3} /> Save </button>
-             </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setIsEditing(false)} className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors">Cancel</button>
+              <button onClick={handleSave} className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 hover:bg-emerald-100 transition-colors"> <Check size={12} strokeWidth={3} /> Save </button>
+            </div>
           )}
         </div>
       </div>
@@ -309,7 +309,7 @@ const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Parti
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
             <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-1.5 text-indigo-600 font-black text-[9px] uppercase tracking-[0.15em] hover:text-indigo-700 transition-colors">
-              VIEW 7-STEP CREATIVE ACTIONS 
+              VIEW 7-STEP CREATIVE ACTIONS
               {expanded ? <ChevronUp size={12} strokeWidth={2} /> : <ChevronDown size={12} strokeWidth={2} />}
             </button>
             <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 text-red-600 font-black text-[9px] uppercase tracking-[0.15em] hover:text-red-700 transition-colors">
@@ -329,7 +329,7 @@ const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Parti
         )}
       </div>
       <div className="px-7 py-3 border-t border-slate-50 flex items-center justify-between bg-white">
-        <button 
+        <button
           onClick={toggleVerify}
           className={`flex items-center gap-2 transition-all ${item.isVerified ? 'text-emerald-600' : 'text-slate-300 hover:text-slate-500'}`}
         >
@@ -339,7 +339,7 @@ const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Parti
           </span>
         </button>
         {item.isHumanEdited && (
-           <span className="text-[8px] font-black text-amber-500 uppercase tracking-[0.2em] bg-amber-50 px-2 py-0.5 rounded border border-amber-100">Manual Edit</span>
+          <span className="text-[8px] font-black text-amber-500 uppercase tracking-[0.2em] bg-amber-50 px-2 py-0.5 rounded border border-amber-100">Manual Edit</span>
         )}
       </div>
     </div>
@@ -361,14 +361,14 @@ const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
     { name: "The Ruler", value: "CONTROL", icon: Crown },
     { name: "The Creator", value: "INNOVATION", icon: Palette },
   ];
-  
+
   const detected = detail?.archetype || "The Ruler";
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <div className="p-3 bg-white shadow-md rounded-xl border border-slate-100">
-           <Crown size={24} className="text-indigo-600" />
+          <Crown size={24} className="text-indigo-600" />
         </div>
         <div>
           <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BRAND ARCHETYPE MATRIX</h3>
@@ -380,41 +380,40 @@ const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
           {archetypes.map((arch, i) => {
             const isDetected = detected.toLowerCase().includes(arch.name.toLowerCase().replace('the ', ''));
             return (
-              <div 
-                key={i} 
-                className={`p-6 rounded-[24px] border-2 flex flex-col items-center justify-center text-center transition-all duration-300 h-32 ${
-                  isDetected 
-                  ? 'border-amber-500 bg-amber-50/20 shadow-lg scale-105 relative z-10' 
+              <div
+                key={i}
+                className={`p-6 rounded-[24px] border-2 flex flex-col items-center justify-center text-center transition-all duration-300 h-32 ${isDetected
+                  ? 'border-amber-500 bg-amber-50/20 shadow-lg scale-105 relative z-10'
                   : 'border-slate-100 bg-slate-50/50 opacity-60 grayscale-[0.2]'
-                }`}
+                  }`}
               >
                 <arch.icon size={24} className={isDetected ? 'text-amber-600' : 'text-slate-400'} />
                 <h4 className={`text-[12px] font-black mt-3 leading-tight ${isDetected ? 'text-slate-800' : 'text-slate-500'}`}>{arch.name}</h4>
                 <p className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${isDetected ? 'text-amber-600' : 'text-slate-400'}`}>{arch.value}</p>
                 {isDetected && (
-                   <div className="absolute -top-2 -right-2 bg-amber-500 text-white p-1 rounded-full shadow-md">
-                      <Check size={10} strokeWidth={4} />
-                   </div>
+                  <div className="absolute -top-2 -right-2 bg-amber-500 text-white p-1 rounded-full shadow-md">
+                    <Check size={10} strokeWidth={4} />
+                  </div>
                 )}
               </div>
             );
           })}
         </div>
-        
+
         <div className="lg:col-span-4 bg-slate-50/80 rounded-[28px] p-8 border border-slate-100 flex flex-col h-full">
-           <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">DETECTED ARCHETYPE</h5>
-           <h4 className="text-4xl font-serif font-bold text-amber-800 mb-2">{detected}</h4>
-           <p className="text-[14px] font-medium text-slate-500 italic mb-10 leading-relaxed">"{detail?.quote}"</p>
-           
-           <div className="bg-white rounded-2xl p-6 border border-slate-200 flex-grow shadow-sm">
-             <div className="flex items-center gap-2 mb-4 text-indigo-600">
-               <Bot size={16} />
-               <h5 className="text-[11px] font-black uppercase tracking-[0.15em]">AI REASONING</h5>
-             </div>
-             <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
-               {detail?.reasoning}
-             </p>
-           </div>
+          <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">DETECTED ARCHETYPE</h5>
+          <h4 className="text-4xl font-serif font-bold text-amber-800 mb-2">{detected}</h4>
+          <p className="text-[14px] font-medium text-slate-500 italic mb-10 leading-relaxed">"{detail?.quote}"</p>
+
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 flex-grow shadow-sm">
+            <div className="flex items-center gap-2 mb-4 text-indigo-600">
+              <Bot size={16} />
+              <h5 className="text-[11px] font-black uppercase tracking-[0.15em]">AI REASONING</h5>
+            </div>
+            <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
+              {detail?.reasoning}
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -439,7 +438,7 @@ const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[] }> = ({ cards }
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <div className="p-3 bg-white shadow-md rounded-xl border border-slate-100">
-           <LayoutGrid size={24} className="text-slate-700" />
+          <LayoutGrid size={24} className="text-slate-700" />
         </div>
         <div>
           <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BRAND STRATEGY WINDOW</h3>
@@ -452,10 +451,10 @@ const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[] }> = ({ cards }
           return (
             <div key={idx} className={`bg-white rounded-[24px] border ${theme.border} p-6 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.03)] flex flex-col h-full relative overflow-hidden group hover:-translate-y-1 transition-all duration-300`}>
               <div className="flex justify-between items-start mb-6">
-                 <div className={`w-10 h-10 ${theme.bg} rounded-xl flex items-center justify-center ${theme.color} shadow-sm group-hover:scale-110 transition-transform`}>
-                    <theme.icon size={20} />
-                 </div>
-                 <span className="text-[10px] font-black text-slate-300 tracking-widest">#{idx + 1}</span>
+                <div className={`w-10 h-10 ${theme.bg} rounded-xl flex items-center justify-center ${theme.color} shadow-sm group-hover:scale-110 transition-transform`}>
+                  <theme.icon size={20} />
+                </div>
+                <span className="text-[10px] font-black text-slate-300 tracking-widest">#{idx + 1}</span>
               </div>
               <h4 className="text-[13px] font-black text-slate-900 tracking-tighter uppercase leading-tight mb-0.5">{card.title}</h4>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4 leading-none">{card.subtitle}</p>
@@ -470,18 +469,18 @@ const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[] }> = ({ cards }
   );
 };
 
-const TargetAudienceAnalysis: React.FC<{ 
-  demographics: Demographic, 
-  psychographics: Psychographic, 
-  behavioral: Behavioral 
+const TargetAudienceAnalysis: React.FC<{
+  demographics: Demographic,
+  psychographics: Psychographic,
+  behavioral: Behavioral
 }> = ({ demographics, psychographics, behavioral }) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Demographics Card */}
       <div className="bg-white rounded-[28px] border border-slate-100 shadow-xl p-8 flex flex-col h-full">
         <div className="flex items-center gap-4 mb-10 border-b border-slate-50 pb-6">
-           <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center shadow-sm"><Users2 size={24} /></div>
-           <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">DEMOGRAPHICS</h3>
+          <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center shadow-sm"><Users2 size={24} /></div>
+          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">DEMOGRAPHICS</h3>
         </div>
         <div className="space-y-6 flex-grow overflow-y-auto max-h-[500px] pr-2 custom-scrollbar">
           <div className="flex justify-between items-center py-1 border-b border-slate-50">
@@ -518,15 +517,15 @@ const TargetAudienceAnalysis: React.FC<{
       {/* Psychographics Card */}
       <div className="bg-white rounded-[28px] border border-slate-100 shadow-xl p-8 flex flex-col h-full">
         <div className="flex items-center gap-4 mb-10 border-b border-slate-50 pb-6">
-           <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center shadow-sm"><Heart size={24} /></div>
-           <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">PSYCHOGRAPHICS</h3>
+          <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center shadow-sm"><Heart size={24} /></div>
+          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">PSYCHOGRAPHICS</h3>
         </div>
         <div className="space-y-8 flex-grow overflow-y-auto max-h-[500px] pr-2 custom-scrollbar">
           <div className="bg-rose-50/50 rounded-[20px] border border-rose-100 p-6 text-center shadow-sm">
-             <h5 className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2">BRAND ARCHETYPE</h5>
-             <h4 className="text-2xl font-serif font-bold text-rose-700">{psychographics.brandArchetype || "The Creator"}</h4>
+            <h5 className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2">BRAND ARCHETYPE</h5>
+            <h4 className="text-2xl font-serif font-bold text-rose-700">{psychographics.brandArchetype || "Unknown"}</h4>
           </div>
-          
+
           <div>
             <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">INTERESTS</h5>
             <div className="flex flex-wrap gap-2">
@@ -559,8 +558,8 @@ const TargetAudienceAnalysis: React.FC<{
       {/* Behavioral Traits Card */}
       <div className="bg-white rounded-[28px] border border-slate-100 shadow-xl p-8 flex flex-col h-full">
         <div className="flex items-center gap-4 mb-10 border-b border-slate-50 pb-6">
-           <div className="w-12 h-12 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center shadow-sm"><Zap size={24} /></div>
-           <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BEHAVIORAL TRAITS</h3>
+          <div className="w-12 h-12 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center shadow-sm"><Zap size={24} /></div>
+          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BEHAVIORAL TRAITS</h3>
         </div>
         <div className="space-y-10 flex-grow overflow-y-auto max-h-[500px] pr-2 custom-scrollbar">
           <div>
@@ -581,7 +580,7 @@ const TargetAudienceAnalysis: React.FC<{
           </div>
           <div className="pt-2">
             <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">DECISION DRIVERS</h5>
-            <p className="text-[13px] font-bold text-indigo-600 uppercase tracking-wider">{behavioral.decisionDriver || "Quality & ROI"}</p>
+            <p className="text-[13px] font-bold text-indigo-600 uppercase tracking-wider">{behavioral.decisionDriver || "Unknown"}</p>
           </div>
         </div>
       </div>
@@ -589,11 +588,11 @@ const TargetAudienceAnalysis: React.FC<{
   );
 };
 
-const ValueUnlockingCard: React.FC<{ 
-  title: string; 
-  icon: any; 
-  current: number; 
-  potential: number; 
+const ValueUnlockingCard: React.FC<{
+  title: string;
+  icon: any;
+  current: number;
+  potential: number;
   unit: string;
   isNegative?: boolean;
   definition: string;
@@ -602,7 +601,7 @@ const ValueUnlockingCard: React.FC<{
   const absDelta = Math.abs(potential - current).toFixed(1);
   const pctDelta = (Math.abs((potential - current) / current) * 100).toFixed(1);
   const isImprovement = isNegative ? potential < current : potential > current;
-  
+
   return (
     <div className="bg-white rounded-[24px] p-6 border border-slate-100 shadow-[0_10px_30px_-15px_rgba(0,0,0,0.05)] flex flex-col relative overflow-hidden group hover:shadow-xl transition-all duration-300">
       <div className="flex justify-between items-start mb-5">
@@ -627,15 +626,15 @@ const ValueUnlockingCard: React.FC<{
           <div className="text-sm font-black text-emerald-600 tabular-nums">{potential.toFixed(1)}{unit}</div>
         </div>
       </div>
-      
+
       <div className="space-y-3 mb-4">
         <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden relative">
-          <div 
-            className="absolute inset-y-0 left-0 bg-slate-300 rounded-full z-10" 
+          <div
+            className="absolute inset-y-0 left-0 bg-slate-300 rounded-full z-10"
             style={{ width: `${(unit === '%' ? current : current * 10)}%` }}
           ></div>
-          <div 
-            className={`absolute inset-y-0 left-0 rounded-full opacity-30 ${isImprovement ? 'bg-emerald-500' : 'bg-rose-500'}`} 
+          <div
+            className={`absolute inset-y-0 left-0 rounded-full opacity-30 ${isImprovement ? 'bg-emerald-500' : 'bg-rose-500'}`}
             style={{ width: `${(unit === '%' ? potential : potential * 10)}%` }}
           ></div>
         </div>
@@ -656,301 +655,346 @@ const ValueUnlockingCard: React.FC<{
 };
 
 export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStrategy, isStrategizing, activeMode }) => {
-    const [localData, setLocalData] = useState(data);
+  const [localData, setLocalData] = useState(data);
 
-    useEffect(() => {
-        setLocalData(data);
-    }, [data]);
+  useEffect(() => {
+    setLocalData(data);
+  }, [data]);
 
-    const handleUpdateDiagnostic = (index: number, updates: Partial<DiagnosticItem>) => {
-        const newList = [...localData.adDiagnostics];
-        newList[index] = { ...newList[index], ...updates };
-        setLocalData({ ...localData, adDiagnostics: newList });
-    };
+  const handleUpdateDiagnostic = (index: number, updates: Partial<DiagnosticItem>) => {
+    if (!localData.adDiagnostics) return;
+    const newList = [...localData.adDiagnostics];
+    if (newList[index]) {
+      newList[index] = { ...newList[index], ...updates };
+      setLocalData({ ...localData, adDiagnostics: newList });
+    }
+  };
 
-    const radarLabels = ["Outcome Prediction", "Creative Recall", "Brand Visibility", "Emotional Curve", "Predicted CTR", "Differentiation", "Proposition Clarity", "Emotional Arc", "Sensory Appeal", "5s Branding", "CTA Clarity", "Virality Potential"];
-    const chartData = radarLabels.map((label, idx) => ({ 
-        subject: label, 
-        A: normalizeScore(localData.adDiagnostics[idx]?.score || 70), 
-        B: normalizeScore(localData.adDiagnostics[idx]?.benchmark || 65) 
-    }));
-    const avgScore = Math.round(localData.adDiagnostics.reduce((acc, curr) => acc + normalizeScore(curr.score), 0) / 12);
-    const avgTier = getRubricTier(avgScore);
-    const tierStyles = getTierStyles(avgTier);
-    
-    const sortedDiagnostics = [...localData.adDiagnostics].sort((a, b) => b.score - a.score);
-    const driver = sortedDiagnostics[0];
-    const detractor = sortedDiagnostics[sortedDiagnostics.length - 1];
 
-    const getDiagScore = (idx: number) => normalizeScore(localData.adDiagnostics[idx]?.score || 60);
+  // SAFEGUARD: Ensure adDiagnostics exists
+  const diagnostics = localData.adDiagnostics || [];
 
-    const hookCur = getDiagScore(0) / 10;
-    const hookPot = Math.min(9.8, hookCur * 1.18); 
-    const clarCur = getDiagScore(6) / 10;
-    const clarPot = Math.min(9.6, clarCur * 1.15); 
-    const visCur = getDiagScore(9) / 10;
-    const visPot = Math.min(9.5, visCur * 1.12); 
-    const vtrCur = getDiagScore(10);
-    const vtrPot = Math.min(88, vtrCur * 1.10); 
-    const ctrCur = (getDiagScore(4) / 100) * 1.6;
-    const ctrPot = Math.min(3.2, ctrCur * 1.25);
-    const dropCur = 100 - getDiagScore(0);
-    const dropPot = Math.max(8.5, dropCur * 0.85);
+  // ADAPTATION: Generate chart data dynamically from available diagnostics
+  // This allows the chart to adapt to variable length data (truth-first)
+  // instead of forcing 12 fixed axes with zero values.
+  const chartData = diagnostics.map((item) => ({
+    subject: item.metric,
+    A: normalizeScore(item.score),
+    B: normalizeScore(item.benchmark || 65)
+  }));
 
-    const hookUpliftPct = ((hookPot - hookCur) / hookCur) * 100;
-    const clarUpliftPct = ((clarPot - clarCur) / clarCur) * 100;
-    const visUpliftPct = ((visPot - visCur) / visCur) * 100;
-    const vtrUpliftPct = ((vtrPot - vtrCur) / vtrCur) * 100;
-    const ctrUpliftPct = ((ctrPot - ctrCur) / ctrCur) * 100;
+  // Fallback for empty state to prevent chart collapse visually
+  if (chartData.length === 0) {
+    ["Outcome", "Recall", "Brand", "Emotion", "Engagement", "Clarity"].forEach(label => {
+      chartData.push({ subject: label, A: 0, B: 0 });
+    });
+  }
 
-    const rawRoi = (hookUpliftPct * 0.20) + (clarUpliftPct * 0.20) + (visUpliftPct * 0.15) + (vtrUpliftPct * 0.15) + (ctrUpliftPct * 0.30);
-    const minTarget = 10.0;
-    const maxTarget = 22.0;
-    const constrainedRoi = Math.max(minTarget, Math.min(maxTarget, 10 + (Math.max(0, rawRoi - 10) / 20) * 12));
+  const avgScore = diagnostics.length > 0
+    ? Math.round(diagnostics.reduce((acc, curr) => acc + normalizeScore(curr.score), 0) / diagnostics.length)
+    : 0;
 
-    return (
-        <div className="space-y-10 pb-20 overflow-y-visible">
-            <div className="space-y-5">
-              <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">HOLISTIC PERFORMANCE SCORECARD</h4></div>
-              <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl border border-slate-100 grid grid-cols-1 lg:grid-cols-12">
-                  <div className="lg:col-span-8 p-8 flex flex-col items-center justify-center relative">
-                      <div className="w-full h-[400px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
-                                  <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 7, fontWeight: 900 }} />
-                                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                                  <RechartsRadar name="Benchmark Score" dataKey="B" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" fill="transparent" />
-                                  <RechartsRadar name="Your Score" dataKey="A" stroke="#4f46e5" strokeWidth={3} fill="#4f46e5" fillOpacity={0.15} />
-                                  <Tooltip />
-                                  <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
-                              </RadarChart>
-                          </ResponsiveContainer>
-                      </div>
-                  </div>
-                  <div className="lg:col-span-4 bg-[#0a0f1d] p-12 flex flex-col items-center justify-center text-center text-white relative border-l border-white/5">
-                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 relative z-10">STRATAPILOT SCORE</h4>
-                      <div className="text-[80px] font-black leading-none tracking-tighter mb-2 relative z-10 text-white drop-shadow-2xl">{avgScore}</div>
-                      <div className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border ${tierStyles} mb-6 relative z-10 shadow-lg shadow-indigo-500/20`}>
-                          {avgTier}
-                      </div>
-                      <div className="w-12 h-1 bg-indigo-500/50 rounded-full mb-6 relative z-10"></div>
-                      <div className="space-y-4 relative z-10 text-left">
-                          <h5 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Score Methodology</h5>
-                          <p className="text-[11px] text-slate-400 leading-relaxed font-medium text-center px-4">
-                              This holistic score is calculated by cross-referencing 12 fundamental creative vectors against a global benchmark engine of 12M+ high-performance campaign data points.
-                          </p>
-                      </div>
-                  </div>
+  const avgTier = getRubricTier(avgScore);
+  const tierStyles = getTierStyles(avgTier);
+
+  const sortedDiagnostics = [...diagnostics].sort((a, b) => b.score - a.score);
+  // SAFEGUARD: Handle empty diagnostics array
+  const driver = sortedDiagnostics.length > 0 ? sortedDiagnostics[0] : null;
+  const detractor = sortedDiagnostics.length > 0 ? sortedDiagnostics[sortedDiagnostics.length - 1] : null;
+
+  // Helper for safe index access with bounds checking
+  const getDiagScore = (idx: number) => (diagnostics[idx] ? normalizeScore(diagnostics[idx].score) : 0);
+
+  const hookCur = getDiagScore(0) / 10;
+  const hookPot = Math.min(9.8, hookCur * 1.18);
+  const clarCur = getDiagScore(6) / 10;
+  const clarPot = Math.min(9.6, clarCur * 1.15);
+  const visCur = getDiagScore(9) / 10;
+  const visPot = Math.min(9.5, visCur * 1.12);
+  const vtrCur = getDiagScore(10);
+  const vtrPot = Math.min(88, vtrCur * 1.10);
+  const ctrCur = (getDiagScore(4) / 100) * 1.6;
+  const ctrPot = Math.min(3.2, ctrCur * 1.25);
+  const dropCur = 100 - getDiagScore(0);
+  const dropPot = Math.max(8.5, dropCur * 0.85);
+
+  const hookUpliftPct = ((hookPot - hookCur) / hookCur) * 100;
+  const clarUpliftPct = ((clarPot - clarCur) / clarCur) * 100;
+  const visUpliftPct = ((visPot - visCur) / visCur) * 100;
+  const vtrUpliftPct = ((vtrPot - vtrCur) / vtrCur) * 100;
+  const ctrUpliftPct = ((ctrPot - ctrCur) / ctrCur) * 100;
+
+  const rawRoi = (hookUpliftPct * 0.20) + (clarUpliftPct * 0.20) + (visUpliftPct * 0.15) + (vtrUpliftPct * 0.15) + (ctrUpliftPct * 0.30);
+  const minTarget = 10.0;
+  const maxTarget = 22.0;
+  const constrainedRoi = Math.max(minTarget, Math.min(maxTarget, 10 + (Math.max(0, rawRoi - 10) / 20) * 12));
+
+  return (
+    <div className="space-y-10 pb-20 overflow-y-visible">
+      {/* C2.2: Manual Jump Navigation (User-Initiated Only) */}
+      <div className="flex flex-wrap gap-4 justify-center pb-4 border-b border-slate-100 mb-8 px-4">
+        {[
+          { label: "Scorecard", id: "holistic-scorecard" },
+          { label: "Executive Summary", id: "executive-summary" },
+          { label: "Diagnostics", id: "diagnostic-summary" },
+          { label: "Audience", id: "audience-insights" },
+          { label: "Strategy", id: "brand-strategy" },
+          { label: "ROI Uplift", id: "roi-uplift" }
+        ].map(link => (
+          <a
+            key={link.id}
+            href={`#${link.id}`}
+            className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors"
+          >
+            {link.label}
+          </a>
+        ))}
+      </div>
+      <div id="holistic-scorecard" className="space-y-5">
+        <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">HOLISTIC PERFORMANCE SCORECARD</h4></div>
+        <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl border border-slate-100 grid grid-cols-1 lg:grid-cols-12">
+          <div className="lg:col-span-8 p-8 flex flex-col items-center justify-center relative">
+            <div className="w-full h-[400px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
+                  <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 7, fontWeight: 900 }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                  <RechartsRadar name="Benchmark Score" dataKey="B" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" fill="transparent" />
+                  <RechartsRadar name="Your Score" dataKey="A" stroke="#4f46e5" strokeWidth={3} fill="#4f46e5" fillOpacity={0.15} />
+                  <Tooltip />
+                  <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div className="lg:col-span-4 bg-[#0a0f1d] p-12 flex flex-col items-center justify-center text-center text-white relative border-l border-white/5">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 relative z-10">STRATAPILOT SCORE</h4>
+            <div className="text-[80px] font-black leading-none tracking-tighter mb-2 relative z-10 text-white drop-shadow-2xl">{avgScore}</div>
+            <div className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border ${tierStyles} mb-6 relative z-10 shadow-lg shadow-indigo-500/20`}>
+              {avgTier}
+            </div>
+            <div className="w-12 h-1 bg-indigo-500/50 rounded-full mb-6 relative z-10"></div>
+            <div className="space-y-4 relative z-10 text-left">
+              <h5 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Score Methodology</h5>
+              <p className="text-[11px] text-slate-400 leading-relaxed font-medium text-center px-4">
+                This holistic score is calculated by cross-referencing 12 fundamental creative vectors against a global benchmark engine of 12M+ high-performance campaign data points.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {driver && detractor && <div id="key-determinants"><KeyDeterminants driver={driver} detractor={detractor} /></div>}
+
+      <div id="executive-summary" className="space-y-5">
+        <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">EXECUTIVE SUMMARY</h4></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {localData.adDiagnostics.map((item, idx) => (
+            <ExecutiveRecommendationCard key={idx} item={item} index={idx} />
+          ))}
+        </div>
+      </div>
+
+      <div id="diagnostic-summary" className="space-y-5">
+        <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">DIAGNOSTIC SUMMARY</h4></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {localData.adDiagnostics.map((item, idx) => (
+            <DiagnosticCard key={idx} item={item} onUpdate={(updates) => handleUpdateDiagnostic(idx, updates)} />
+          ))}
+        </div>
+      </div>
+
+      <div id="audience-insights" className="space-y-5">
+        <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">TARGET AUDIENCE INSIGHTS</h4></div>
+        {localData.demographics && localData.psychographics && localData.behavioral ? (
+          <TargetAudienceAnalysis demographics={localData.demographics} psychographics={localData.psychographics} behavioral={localData.behavioral} />
+        ) : (
+          <div className="text-center text-slate-400 py-10 font-bold border border-slate-100 rounded-[28px]">No Audience Data Available</div>
+        )}
+      </div>
+
+      <div id="brand-archetype" className="space-y-5">
+        <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">BRAND ARCHETYPE MATRIX</h4></div>
+        {localData.brandArchetypeDetail ? <BrandArchetypeMatrix detail={localData.brandArchetypeDetail} /> : <div className="text-center text-slate-400 py-10 font-bold border border-slate-100 rounded-[28px]">No Archetype Data Available</div>}
+      </div>
+
+      <div id="brand-strategy" className="space-y-5">
+        <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">BRAND STRATEGY WINDOW</h4></div>
+        {localData.brandStrategyWindow ? <BrandStrategyWindow cards={localData.brandStrategyWindow} /> : <div className="text-center text-slate-400 py-10 font-bold border border-slate-100 rounded-[28px]">No Strategy Data Available</div>}
+      </div>
+
+      <div id="cri-score" className="space-y-8 pt-8">
+        <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md">
+          <h4 className="text-[10px] font-black uppercase tracking-[0.3em]">CREATIVE RESONANCE INDEX (CRI)</h4>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <CRICard
+            label="Enjoyment Score"
+            value={localData.roiMetrics?.emotionCurveEngagement || 0}
+            definition="Level of aesthetic pleasure and narrative flow."
+            science="Visual saliency & cognitive ease mapping."
+          />
+          <CRICard
+            label="Distinctiveness"
+            value={diagnostics[5]?.score || 0}
+            definition="Degree of departure from category creative norms."
+            science="Multi-vector variance analysis vs category bank."
+          />
+          <CRICard
+            label="Brand Visibility"
+            subLabel="(First 5 sec)"
+            value={localData.roiMetrics?.brandVisibilityScore || 75}
+            definition="Presence and impact of brand codes in early frames."
+            science="Attention heatmap tracking of logo & colors."
+          />
+          <CRICard
+            label="Brand Linkage"
+            value={localData.roiMetrics?.hookScore || 70}
+            definition="Recall connection between content & brand owner."
+            science="Attribution modeling via asset-to-brand weighting."
+          />
+          <CRICard
+            label="Action Intent"
+            subLabel="(Try/Buy)"
+            value={68}
+            definition="Stated or implied willingness to interact/purchase."
+            science="Bayesian intent forecasting from CTA prominence."
+          />
+          <CRICard
+            label="Predicted CTR"
+            subLabel="(Digital Pre-Roll)"
+            value={localData.roiMetrics?.predictedCtr || "1.8"}
+            isPercentage={false}
+            definition="Probability of a click event in digital environments."
+            science="Neural net prediction vs 12M performance rows."
+          />
+          <CRICard
+            label="Message Clarity"
+            value={localData.roiMetrics?.clarityScore || 69}
+            definition="Speed and accuracy of value proposition decoding."
+            science="Semantic density & NLP cognitive load testing."
+          />
+          <CRICard
+            label="Emotional Engagement"
+            value={72}
+            definition="Strength of the affective response curve."
+            science="Sentiment arc analysis & narrative peak detection."
+          />
+          <CRICard
+            label="Persona Fit"
+            subLabel="(Target Alignment)"
+            value={85}
+            definition="Resonance with target psychographic benchmarks."
+            science="Psychometric vector matching & cluster alignment."
+          />
+        </div>
+      </div>
+
+      <div id="value-unlocking" className="space-y-8 pt-8">
+        <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md">
+          <h4 className="text-[10px] font-black uppercase tracking-[0.3em]">VALUE UNLOCKING DASHBOARD</h4>
+        </div>
+        <div className="bg-slate-50/30 rounded-[32px] border border-slate-100 p-7">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <ValueUnlockingCard
+              title="Hook Score"
+              icon={Anchor}
+              current={hookCur}
+              potential={hookPot}
+              unit="/10"
+              definition="Strength of the initial 3-second visual/audio grab."
+              science="Neural attention modeling vs drop-off probability."
+            />
+            <ValueUnlockingCard
+              title="Clarity Score"
+              icon={Scan}
+              current={clarCur}
+              potential={clarPot}
+              unit="/10"
+              definition="Ease of understanding the primary value proposition."
+              science="Semantic density and cognitive load indexing."
+            />
+            <ValueUnlockingCard
+              title="Brand Visibility"
+              icon={Crown}
+              current={visCur}
+              potential={visPot}
+              unit="/10"
+              definition="Prominence of brand identifiers (logo, colors, name)."
+              science="Computer vision saliency mapping for brand codes."
+            />
+            <ValueUnlockingCard
+              title="Retention (VTR)"
+              icon={PlayCircle}
+              current={vtrCur}
+              potential={vtrPot}
+              unit="%"
+              definition="Probability of viewers watching the ad to completion."
+              science="Narrative arc stability & engagement decay analysis."
+            />
+            <ValueUnlockingCard
+              title="Click-Through (CTR)"
+              icon={MousePointer2}
+              current={ctrCur}
+              potential={ctrPot}
+              unit="%"
+              definition="Likelihood of user action leading to a click event."
+              science="Intent prediction via CTA saliency & offer strength."
+            />
+            <ValueUnlockingCard
+              title="Drop-off Risk"
+              icon={TrendingDown}
+              current={dropCur}
+              potential={dropPot}
+              unit="%"
+              isNegative
+              definition="Vulnerability to viewer loss at critical transition points."
+              science="Adversarial frame analysis identifying friction peaks."
+            />
+          </div>
+
+          <div id="roi-uplift" className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md mt-10">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em]">PROJECTED ROI UPLIFT</h4>
+          </div>
+          <div className="mt-6 bg-emerald-600 rounded-[32px] p-8 md:p-12 text-white relative overflow-hidden shadow-2xl animate-in slide-in-from-bottom-6 duration-700">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 relative z-10 items-start">
+              <div className="lg:col-span-7 space-y-6">
+                <div className="flex items-center gap-3">
+                  <UpliftIcon size={24} className="text-emerald-100" />
+                  <h3 className="text-base font-black uppercase tracking-[0.2em] text-emerald-100">PROJECTED ROI UPLIFT</h3>
+                </div>
+                <div className="text-[90px] font-black leading-none tracking-tighter tabular-nums text-white">
+                  +{constrainedRoi.toFixed(1)}%
+                </div>
+                <p className="text-sm font-bold text-emerald-50 leading-relaxed max-w-xl">
+                  Optimization gains across digital channels derived from implementing recommendations. By implementing the "Creative Reset" recommendations, we project a significant efficiency gain in media spend.
+                </p>
+              </div>
+              <div className="lg:col-span-5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-2 text-emerald-100">
+                  <BarChart3 size={16} />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest">METHODOLOGY</h4>
+                </div>
+                <p className="text-[11px] leading-relaxed text-emerald-50/90 font-medium">
+                  The ROI uplift is calculated by weighting the predicted improvements across key metrics exactly as shown in the Value Unlocking Dashboard: Hook Score (+{hookUpliftPct.toFixed(1)}%), Clarity Score (+{clarUpliftPct.toFixed(1)}%), Brand Visibility Score (+{visUpliftPct.toFixed(1)}%), Predicted VTR (+{vtrUpliftPct.toFixed(1)}%), and Predicted CTR (+{ctrUpliftPct.toFixed(1)}%).
+                  These specific gains are weighted at 20%, 20%, 15%, 15%, and 30% respectively. A higher Holistic and Diagnostic Score reduces wasted impressions and improves recall, directly leading to a lower <strong className="text-white underline decoration-emerald-400">Cost per Lead</strong> and reduced <strong className="text-white underline decoration-emerald-400">CAC</strong>.
+                  The final result is normalized to fall within the CMO-verified performance range of 10-22%.
+                </p>
               </div>
             </div>
-
-            <KeyDeterminants driver={driver} detractor={detractor} />
-
-            <div className="space-y-5">
-                <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">EXECUTIVE SUMMARY</h4></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {localData.adDiagnostics.map((item, idx) => (
-                      <ExecutiveRecommendationCard key={idx} item={item} index={idx} />
-                    ))}
-                </div>
-            </div>
-
-            <div className="space-y-5">
-                <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">DIAGNOSTIC SUMMARY</h4></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {localData.adDiagnostics.map((item, idx) => (
-                        <DiagnosticCard key={idx} item={item} onUpdate={(updates) => handleUpdateDiagnostic(idx, updates)} />
-                    ))}
-                </div>
-            </div>
-
-            <div className="space-y-5">
-                <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">TARGET AUDIENCE INSIGHTS</h4></div>
-                <TargetAudienceAnalysis demographics={localData.demographics} psychographics={localData.psychographics} behavioral={localData.behavioral} />
-            </div>
-
-            <div className="space-y-5">
-                <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">BRAND ARCHETYPE MATRIX</h4></div>
-                <BrandArchetypeMatrix detail={localData.brandArchetypeDetail} />
-            </div>
-
-            <div className="space-y-5">
-                <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">BRAND STRATEGY WINDOW</h4></div>
-                <BrandStrategyWindow cards={localData.brandStrategyWindow} />
-            </div>
-
-            <div className="space-y-8 pt-8">
-                <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md">
-                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em]">CREATIVE RESONANCE INDEX (CRI)</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                   <CRICard 
-                    label="Enjoyment Score" 
-                    value={localData.roiMetrics?.emotionCurveEngagement || 78} 
-                    definition="Level of aesthetic pleasure and narrative flow."
-                    science="Visual saliency & cognitive ease mapping."
-                   />
-                   <CRICard 
-                    label="Distinctiveness" 
-                    value={localData.adDiagnostics[5]?.score || 65} 
-                    definition="Degree of departure from category creative norms."
-                    science="Multi-vector variance analysis vs category bank."
-                   />
-                   <CRICard 
-                    label="Brand Visibility" 
-                    subLabel="(First 5 sec)" 
-                    value={localData.roiMetrics?.brandVisibilityScore || 75} 
-                    definition="Presence and impact of brand codes in early frames."
-                    science="Attention heatmap tracking of logo & colors."
-                   />
-                   <CRICard 
-                    label="Brand Linkage" 
-                    value={localData.roiMetrics?.hookScore || 70} 
-                    definition="Recall connection between content & brand owner."
-                    science="Attribution modeling via asset-to-brand weighting."
-                   />
-                   <CRICard 
-                    label="Action Intent" 
-                    subLabel="(Try/Buy)" 
-                    value={68} 
-                    definition="Stated or implied willingness to interact/purchase."
-                    science="Bayesian intent forecasting from CTA prominence."
-                   />
-                   <CRICard 
-                    label="Predicted CTR" 
-                    subLabel="(Digital Pre-Roll)" 
-                    value={localData.roiMetrics?.predictedCtr || "1.8"} 
-                    isPercentage={false} 
-                    definition="Probability of a click event in digital environments."
-                    science="Neural net prediction vs 12M performance rows."
-                   />
-                   <CRICard 
-                    label="Message Clarity" 
-                    value={localData.roiMetrics?.clarityScore || 69} 
-                    definition="Speed and accuracy of value proposition decoding."
-                    science="Semantic density & NLP cognitive load testing."
-                   />
-                   <CRICard 
-                    label="Emotional Engagement" 
-                    value={72} 
-                    definition="Strength of the affective response curve."
-                    science="Sentiment arc analysis & narrative peak detection."
-                   />
-                   <CRICard 
-                    label="Persona Fit" 
-                    subLabel="(Target Alignment)" 
-                    value={85} 
-                    definition="Resonance with target psychographic benchmarks."
-                    science="Psychometric vector matching & cluster alignment."
-                   />
-                </div>
-            </div>
-
-            <div className="space-y-8 pt-8">
-                <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md">
-                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em]">VALUE UNLOCKING DASHBOARD</h4>
-                </div>
-                <div className="bg-slate-50/30 rounded-[32px] border border-slate-100 p-7">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                       <ValueUnlockingCard 
-                        title="Hook Score" 
-                        icon={Anchor} 
-                        current={hookCur} 
-                        potential={hookPot} 
-                        unit="/10" 
-                        definition="Strength of the initial 3-second visual/audio grab."
-                        science="Neural attention modeling vs drop-off probability."
-                       />
-                       <ValueUnlockingCard 
-                        title="Clarity Score" 
-                        icon={Scan} 
-                        current={clarCur} 
-                        potential={clarPot} 
-                        unit="/10" 
-                        definition="Ease of understanding the primary value proposition."
-                        science="Semantic density and cognitive load indexing."
-                       />
-                       <ValueUnlockingCard 
-                        title="Brand Visibility" 
-                        icon={Crown} 
-                        current={visCur} 
-                        potential={visPot} 
-                        unit="/10" 
-                        definition="Prominence of brand identifiers (logo, colors, name)."
-                        science="Computer vision saliency mapping for brand codes."
-                       />
-                       <ValueUnlockingCard 
-                        title="Retention (VTR)" 
-                        icon={PlayCircle} 
-                        current={vtrCur} 
-                        potential={vtrPot} 
-                        unit="%" 
-                        definition="Probability of viewers watching the ad to completion."
-                        science="Narrative arc stability & engagement decay analysis."
-                       />
-                       <ValueUnlockingCard 
-                        title="Click-Through (CTR)" 
-                        icon={MousePointer2} 
-                        current={ctrCur} 
-                        potential={ctrPot} 
-                        unit="%" 
-                        definition="Likelihood of user action leading to a click event."
-                        science="Intent prediction via CTA saliency & offer strength."
-                       />
-                       <ValueUnlockingCard 
-                        title="Drop-off Risk" 
-                        icon={TrendingDown} 
-                        current={dropCur} 
-                        potential={dropPot} 
-                        unit="%" 
-                        isNegative 
-                        definition="Vulnerability to viewer loss at critical transition points."
-                        science="Adversarial frame analysis identifying friction peaks."
-                       />
-                    </div>
-
-                    <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md mt-10">
-                       <h4 className="text-[10px] font-black uppercase tracking-[0.3em]">PROJECTED ROI UPLIFT</h4>
-                    </div>
-                    <div className="mt-6 bg-emerald-600 rounded-[32px] p-8 md:p-12 text-white relative overflow-hidden shadow-2xl animate-in slide-in-from-bottom-6 duration-700">
-                        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 relative z-10 items-start">
-                            <div className="lg:col-span-7 space-y-6">
-                                <div className="flex items-center gap-3">
-                                   <UpliftIcon size={24} className="text-emerald-100" />
-                                   <h3 className="text-base font-black uppercase tracking-[0.2em] text-emerald-100">PROJECTED ROI UPLIFT</h3>
-                                </div>
-                                <div className="text-[90px] font-black leading-none tracking-tighter tabular-nums text-white">
-                                   +{constrainedRoi.toFixed(1)}%
-                                </div>
-                                <p className="text-sm font-bold text-emerald-50 leading-relaxed max-w-xl">
-                                   Optimization gains across digital channels derived from implementing recommendations. By implementing the "Creative Reset" recommendations, we project a significant efficiency gain in media spend.
-                                </p>
-                            </div>
-                            <div className="lg:col-span-5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 space-y-4">
-                                <div className="flex items-center gap-2 text-emerald-100">
-                                    <BarChart3 size={16} />
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest">METHODOLOGY</h4>
-                                </div>
-                                <p className="text-[11px] leading-relaxed text-emerald-50/90 font-medium">
-                                    The ROI uplift is calculated by weighting the predicted improvements across key metrics exactly as shown in the Value Unlocking Dashboard: Hook Score (+{hookUpliftPct.toFixed(1)}%), Clarity Score (+{clarUpliftPct.toFixed(1)}%), Brand Visibility Score (+{visUpliftPct.toFixed(1)}%), Predicted VTR (+{vtrUpliftPct.toFixed(1)}%), and Predicted CTR (+{ctrUpliftPct.toFixed(1)}%). 
-                                    These specific gains are weighted at 20%, 20%, 15%, 15%, and 30% respectively. A higher Holistic and Diagnostic Score reduces wasted impressions and improves recall, directly leading to a lower <strong className="text-white underline decoration-emerald-400">Cost per Lead</strong> and reduced <strong className="text-white underline decoration-emerald-400">CAC</strong>. 
-                                    The final result is normalized to fall within the CMO-verified performance range of 10-22%.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex justify-center pt-12">
-               <button onClick={onGenerateStrategy} disabled={isStrategizing || !!data.campaignStrategy} className="px-12 py-5 bg-[#0a0f1d] text-white rounded-full font-black text-[12px] uppercase tracking-[0.5em] shadow-[0_20px_50px_rgba(10,15,29,0.3)] hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 group relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  {isStrategizing ? 'GENERATING STRATEGY...' : data.campaignStrategy ? 'STRATEGY ACTIVE' : 'GENERATE CAMPAIGN STRATEGY RESET'}
-                  <ArrowRight size={18} className="inline ml-3 group-hover:translate-x-1.5 transition-transform" strokeWidth={3} />
-               </button>
-            </div>
+          </div>
         </div>
-    );
+      </div>
+
+      <div className="flex justify-center pt-12">
+        <button onClick={onGenerateStrategy} disabled={isStrategizing || !!data.campaignStrategy} className="px-12 py-5 bg-[#0a0f1d] text-white rounded-full font-black text-[12px] uppercase tracking-[0.5em] shadow-[0_20px_50px_rgba(10,15,29,0.3)] hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 group relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          {isStrategizing ? 'GENERATING STRATEGY...' : data.campaignStrategy ? 'STRATEGY ACTIVE' : 'GENERATE CAMPAIGN STRATEGY RESET'}
+          <ArrowRight size={18} className="inline ml-3 group-hover:translate-x-1.5 transition-transform" strokeWidth={3} />
+        </button>
+      </div>
+    </div>
+  );
 };

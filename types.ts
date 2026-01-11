@@ -8,7 +8,7 @@ export interface Demographic {
   maritalStatus: string;
   generation?: string; // e.g. Gen Z, Millennial
   householdStructure?: string; // e.g. Nuclear, Joint, Single
-  techLiteracy?: 'Low' | 'Medium' | 'High'; 
+  techLiteracy?: 'Low' | 'Medium' | 'High';
 }
 
 export interface Psychographic {
