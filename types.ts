@@ -125,6 +125,7 @@ export interface AnalysisResult {
   modelHealth?: ModelHealth;
   validationSuite?: ValidationMetrics;
   campaignStrategy?: CampaignStrategy;
+  transcript?: string;
 }
 
 export type LoadingState = 'idle' | 'analyzing' | 'strategizing' | 'success' | 'error';

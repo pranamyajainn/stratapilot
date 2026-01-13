@@ -1,5 +1,5 @@
 import React from 'react';
-import { Archive, Search, Shuffle, Zap, Brain, Scale, CheckSquare, ShieldAlert, RefreshCcw, BarChart3, RefreshCw, Database, Cpu, BrainCircuit, Server, BarChart } from 'lucide-react';
+import { Archive, Search, Shuffle, Zap, Brain, Scale, CheckSquare, ShieldAlert, RefreshCcw, BarChart3, RefreshCw, Database, Cpu, BrainCircuit, Server, BarChart, ServerCog } from 'lucide-react';
 
 export const TechLayerLoader: React.FC<{ step: number }> = ({ step }) => {
     const processSteps = [
@@ -57,8 +57,8 @@ export const TechLayerLoader: React.FC<{ step: number }> = ({ step }) => {
                         return (
                             <div key={idx} className={`flex items-center gap-4 transition-all duration-300 relative z-10 ${isActive ? 'scale-100 opacity-100' : isCompleted ? 'opacity-80' : 'opacity-20 blur-[1px]'}`}>
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-all duration-500 flex-shrink-0 ${isActive ? 'bg-indigo-600 border-indigo-500 shadow-lg shadow-indigo-500/30' :
-                                        isCompleted ? 'bg-emerald-50 border-emerald-500' :
-                                            'bg-slate-50 border-slate-200'
+                                    isCompleted ? 'bg-emerald-50 border-emerald-500' :
+                                        'bg-slate-50 border-slate-200'
                                     }`}>
                                     <Icon s={s} active={isActive} completed={isCompleted} />
                                 </div>
@@ -89,8 +89,8 @@ export const TechLayerLoader: React.FC<{ step: number }> = ({ step }) => {
                         return (
                             <div key={idx} className={`flex items-start gap-4 relative z-10 transition-all duration-500 ${isActive ? 'translate-x-2' : ''}`}>
                                 <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4 transition-all duration-500 flex-shrink-0 ${isActive ? 'bg-white border-indigo-500 shadow-xl shadow-indigo-100 scale-110' :
-                                        isPassed ? 'bg-emerald-50 border-emerald-200' :
-                                            'bg-slate-50 border-white'
+                                    isPassed ? 'bg-emerald-50 border-emerald-200' :
+                                        'bg-slate-50 border-white'
                                     }`}>
                                     <layer.icon size={20} className={isActive ? 'text-indigo-600' : isPassed ? 'text-emerald-500' : 'text-slate-300'} />
                                 </div>

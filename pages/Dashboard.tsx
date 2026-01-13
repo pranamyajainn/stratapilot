@@ -120,16 +120,32 @@ export const Dashboard: React.FC = () => {
         if (userQuery) contextParts.push(`User Question: ${userQuery}`);
         const combinedContext = contextParts.join('\n\n');
         const activeLabel = presetOverride || selectedPreset || "Balanced Analysis";
+
         if (!file && !urlInput && !combinedContext.trim() && !presetOverride) {
             setError("Please upload a file, provide a link, or select an analysis focus.");
             return;
         }
+
         setLoadingState('analyzing');
         setError(null);
         setResult(null);
         if (presetOverride) { setSelectedPreset(presetOverride); }
+
         try {
-            const data = await analyzeCollateral(combinedContext, activeLabel, file || undefined);
+            let data;
+            if (urlInput) {
+                // Use the new URL analysis endpoint
+                // Import is needed at top, but I can assume it's imported or I will update imports in another step
+                // Actually I should update imports first or use the imported function if I update the imports.
+                // Wait, I updated geminiService.ts to export analyzeUrl. I need to update imports in Dashboard.tsx too.
+                // For now, I'll access it from the module if I can, but imports are static.
+                // I will assume the imports are updated.
+                const { analyzeUrl } = await import('../services/geminiService');
+                data = await analyzeUrl(urlInput, combinedContext, activeLabel);
+            } else {
+                data = await analyzeCollateral(combinedContext, activeLabel, file || undefined);
+            }
+
             const newAuditId = `SP-${String(auditCounter).padStart(5, '0')}`;
             setAuditCounter(prev => prev + 1);
             setResult({ ...data, auditId: newAuditId });
@@ -405,7 +421,7 @@ export const Dashboard: React.FC = () => {
                                 {activeVoiceField === 'query' ? <AudioLines size={20} /> : <Mic size={20} />}
                                 {activeVoiceField === 'query' && <span className="text-xs font-bold">Listening...</span>}
                             </button>
-                            <button onClick={() => runAnalysis()} disabled={loadingState === 'analyzing'} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-900/20 hover:bg-indigo-900 hover:shadow-indigo-900/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[140px] justify-center text-sm"> {loadingState === 'analyzing' ? <> <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Processing... </> : <> <Bot size={18} /> Run Neural Network </>} </button>
+                            <button type="button" onClick={() => runAnalysis()} disabled={loadingState === 'analyzing'} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-900/20 hover:bg-indigo-900 hover:shadow-indigo-900/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[140px] justify-center text-sm"> {loadingState === 'analyzing' ? <> <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Processing... </> : <> <Bot size={18} /> Run Neural Network </>} </button>
                         </div>
                     </div>
                 </div>
