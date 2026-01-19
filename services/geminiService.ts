@@ -19,7 +19,8 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 export const analyzeCollateral = async (
   textContext: string,
   analysisLabel: string,
-  mediaFile?: File
+  mediaFile?: File,
+  tokens?: { googleToken?: string, metaToken?: string, gaPropertyId?: string }
 ): Promise<AnalysisResult> => {
   let fileData: string | null = null;
   let mimeType: string | null = null;
@@ -39,6 +40,7 @@ export const analyzeCollateral = async (
       analysisLabel,
       fileData,
       mimeType,
+      ...tokens,
     }),
   });
 
@@ -54,7 +56,8 @@ export const analyzeCollateral = async (
 export const analyzeUrl = async (
   videoUrl: string,
   textContext: string,
-  analysisLabel: string
+  analysisLabel: string,
+  tokens?: { googleToken?: string, metaToken?: string, gaPropertyId?: string }
 ): Promise<AnalysisResult> => {
   const response = await fetch(`${API_BASE_URL}/analyze-url`, {
     method: 'POST',
@@ -65,6 +68,7 @@ export const analyzeUrl = async (
       videoUrl,
       textContext,
       analysisLabel,
+      ...tokens,
     }),
   });
 

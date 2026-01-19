@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -9,6 +10,8 @@ import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 import ytdl from '@distube/ytdl-core';
+import { getGoogleAuthUrl, getGoogleTokens, fetchGA4Data } from './services/googleAnalytics.js';
+import { getMetaAuthUrl, getMetaTokens, fetchMetaAdsData } from './services/metaAds.js';
 
 // ES Module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -41,7 +44,7 @@ interface CampaignStrategy {
 
 // --- CONFIGURATION ---
 const PORT = process.env.PORT || 3000;
-const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_MB = 100; // Supports videos up to ~3 minutes
 const SUPPORTED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/mpeg", "video/quicktime"];
 
 // DETERMINISM CONFIG
@@ -489,7 +492,7 @@ Strictly follow the JSON schema provided.
     return safeGenerate<AnalysisResult>(
         "analyzeCollateral",
         () => getAIClient().models.generateContent({
-            model: 'gemini-flash-latest',
+            model: 'gemini-2.0-flash',
             contents: { parts: parts },
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
@@ -512,7 +515,7 @@ const generateCampaignStrategy = async (analysis: AnalysisResult): Promise<Campa
     return safeGenerate<CampaignStrategy>(
         "generateCampaignStrategy",
         () => getAIClient().models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-2.0-flash',
             contents: { parts: [{ text: prompt }] },
             config: {
                 systemInstruction: STRATEGY_SYSTEM_INSTRUCTION,
@@ -529,7 +532,7 @@ const generateCampaignStrategy = async (analysis: AnalysisResult): Promise<Campa
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '150mb' })); // Increased for video uploads up to 100MB
 
 // Error handler middleware
 const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
@@ -618,7 +621,7 @@ const uploadToGemini = async (filePath: string, mimeType: string): Promise<strin
 app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunction) => {
     let tempFilePath: string | null = null;
     try {
-        const { videoUrl, textContext, analysisLabel } = req.body;
+        const { videoUrl, textContext, analysisLabel, googleToken, metaToken, gaPropertyId } = req.body;
 
         if (!videoUrl) throw new ValidationError("videoUrl is required");
 
@@ -639,8 +642,33 @@ app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunct
         // 2. Upload to Gemini
         const fileUri = await uploadToGemini(tempFilePath, mimeType || 'video/mp4');
 
-        // 3. Analyze
-        const result = await analyzeCollateral(textContext, analysisLabel, null, mimeType || 'video/mp4', fileUri);
+        // 3. Fetch External Data if tokens present
+        let externalDataContext = "";
+        if (googleToken && gaPropertyId) {
+            console.log('[DATA] Fetching GA4 Data...');
+            try {
+                const gaData = await fetchGA4Data(googleToken, gaPropertyId);
+                externalDataContext += `\n\nREAL-WORLD PERFORMANCE DATA (Google Analytics 4):\n${JSON.stringify(gaData, null, 2)}`;
+            } catch (e: any) {
+                console.error("Failed to fetch GA4 data", e.message);
+                externalDataContext += `\n\n(Attempted to fetch GA4 data but failed: ${e.message})`;
+            }
+        }
+
+        if (metaToken) {
+            console.log('[DATA] Fetching Meta Ads Data...');
+            try {
+                const metaData = await fetchMetaAdsData(metaToken);
+                externalDataContext += `\n\nREAL-WORLD PERFORMANCE DATA (Meta Ads):\n${JSON.stringify(metaData, null, 2)}`;
+            } catch (e: any) {
+                console.error("Failed to fetch Meta data", e.message);
+                externalDataContext += `\n\n(Attempted to fetch Meta Ads data but failed: ${e.message})`;
+            }
+        }
+
+        // 4. Analyze with Context
+        const fullContext = `${textContext || ''}${externalDataContext}`;
+        const result = await analyzeCollateral(fullContext, analysisLabel, null, mimeType || 'video/mp4', fileUri);
 
         res.json({ success: true, data: result });
 
@@ -656,16 +684,139 @@ app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunct
 
 // POST /api/analyze
 app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction) => {
+    let tempFilePath: string | null = null;
     try {
-        const { textContext, analysisLabel, fileData, mimeType } = req.body;
+        const { textContext, analysisLabel, fileData, mimeType, googleToken, metaToken, gaPropertyId } = req.body;
 
-        console.log(`[API] /api/analyze called with label="${analysisLabel}", hasFile=${!!fileData}`);
+        console.log(`[API] /api/analyze called with label="${analysisLabel}", hasFile=${!!fileData}, mimeType=${mimeType}`);
 
-        const result = await analyzeCollateral(textContext, analysisLabel, fileData, mimeType);
+        // Fetch External Data
+        let externalDataContext = "";
+        if (googleToken && gaPropertyId) {
+            console.log('[DATA] Fetching GA4 Data...');
+            try {
+                const gaData = await fetchGA4Data(googleToken, gaPropertyId);
+                externalDataContext += `\n\nREAL-WORLD PERFORMANCE DATA (Google Analytics 4):\n${JSON.stringify(gaData, null, 2)}`;
+            } catch (e: any) {
+                console.error("Failed to fetch GA4 data", e.message);
+                externalDataContext += `\n\n(Attempted to fetch GA4 data but failed: ${e.message})`;
+            }
+        }
+
+        if (metaToken) {
+            console.log('[DATA] Fetching Meta Ads Data...');
+            try {
+                const metaData = await fetchMetaAdsData(metaToken);
+                externalDataContext += `\n\nREAL-WORLD PERFORMANCE DATA (Meta Ads):\n${JSON.stringify(metaData, null, 2)}`;
+            } catch (e: any) {
+                console.error("Failed to fetch Meta data", e.message);
+                externalDataContext += `\n\n(Attempted to fetch Meta Ads data but failed: ${e.message})`;
+            }
+        }
+
+        const fullContext = `${textContext || ''}${externalDataContext}`;
+
+        let result;
+
+        // For videos, use Gemini File API instead of inline base64 to avoid quota issues
+        const isVideo = mimeType && mimeType.startsWith('video/');
+
+        if (fileData && isVideo) {
+            console.log('[UPLOAD] Video detected, using Gemini File API for efficiency...');
+
+            // Determine file extension from mimeType
+            const extMap: Record<string, string> = {
+                'video/mp4': '.mp4',
+                'video/mpeg': '.mpeg',
+                'video/quicktime': '.mov',
+                'video/webm': '.webm'
+            };
+            const ext = extMap[mimeType] || '.mp4';
+
+            // Save base64 to temp file
+            tempFilePath = path.join(os.tmpdir(), `${uuidv4()}${ext}`);
+            const buffer = Buffer.from(fileData, 'base64');
+            fs.writeFileSync(tempFilePath, buffer);
+            console.log(`[UPLOAD] Saved temp file: ${tempFilePath} (${buffer.length} bytes)`);
+
+            // Upload to Gemini File API
+            const fileUri = await uploadToGemini(tempFilePath, mimeType);
+            console.log(`[UPLOAD] File uploaded to Gemini: ${fileUri}`);
+
+            // Analyze using file URI (like URL analysis)
+            result = await analyzeCollateral(fullContext, analysisLabel, null, mimeType, fileUri);
+        } else {
+            // For images, inline base64 is fine (they're smaller)
+            result = await analyzeCollateral(fullContext, analysisLabel, fileData, mimeType);
+        }
 
         res.json({ success: true, data: result });
     } catch (error) {
         next(error);
+    } finally {
+        // Cleanup temp file
+        if (tempFilePath && fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
+            console.log(`[CLEANUP] Removed temp file: ${tempFilePath}`);
+        }
+    }
+});
+
+// --- AUTH ROUTES ---
+
+// Google Auth
+app.get('/api/auth/google', (req, res) => {
+    const url = getGoogleAuthUrl();
+    res.redirect(url);
+});
+
+app.get('/api/auth/google/callback', async (req, res) => {
+    const code = req.query.code as string;
+    if (!code) return res.status(400).send('No code provided');
+
+    try {
+        const tokens = await getGoogleTokens(code);
+        // Send tokens back to opener
+        const html = `
+            <script>
+                window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', token: '${tokens.access_token}' }, 'http://localhost:3000');
+                window.close();
+            </script>
+            <h1>Authentication Successful</h1>
+            <p>You can close this window now.</p>
+        `;
+        res.send(html);
+    } catch (error) {
+        console.error('Google Auth Failed:', error);
+        res.status(500).send('Authentication failed');
+    }
+});
+
+// Meta Auth
+app.get('/api/auth/meta', (req, res) => {
+    const url = getMetaAuthUrl();
+    res.redirect(url);
+});
+
+app.get('/api/auth/meta/callback', async (req, res) => {
+    const code = req.query.code as string;
+    if (!code) return res.status(400).send('No code provided');
+
+    try {
+        const data = await getMetaTokens(code);
+        // Send tokens back to opener
+        const html = `
+            <script>
+                window.opener.postMessage({ type: 'META_AUTH_SUCCESS', token: '${data.access_token}' }, 'http://localhost:3000');
+                window.close();
+            </script>
+            <h1>Authentication Successful</h1>
+            <p>You can close this window now.</p>
+        `;
+        res.send(html);
+    } catch (error) {
+        console.error('Meta Auth Failed:', error);
+        res.status(500).send('Authentication failed');
     }
 });
 

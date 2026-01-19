@@ -7,7 +7,7 @@ interface ConnectionModalProps {
     type: IntegrationType;
     isOpen: boolean;
     onClose: () => void;
-    onSuccess: () => void;
+    onSuccess: (token: string, extraId?: string) => void;
 }
 
 export const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, onClose, onSuccess }) => {
@@ -16,23 +16,56 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, 
 
     if (!isOpen) return null;
 
-    const handleComplete = () => {
-        if (type === 'GA4' && !propertyId) {
-            alert("Please provide your GA4 Property ID");
-            return;
-        }
-        setIsProcessing(true);
-        setTimeout(() => {
-            onSuccess();
-            onClose();
-            setIsProcessing(false);
-        }, 1500);
+    const handleConnect = () => {
+        const width = 500;
+        const height = 600;
+        const left = window.screen.width / 2 - width / 2;
+        const top = window.screen.height / 2 - height / 2;
+
+        const url = type === 'GA4'
+            ? 'http://localhost:3000/api/auth/google'
+            : 'http://localhost:3000/api/auth/meta';
+
+        const popup = window.open(
+            url,
+            'Connect',
+            `width=${width},height=${height},top=${top},left=${left}`
+        );
+
+        const messageHandler = (event: MessageEvent) => {
+            if (event.origin !== 'http://localhost:3000') return; // Security check
+
+            if (type === 'GA4' && event.data.type === 'GOOGLE_AUTH_SUCCESS') {
+                window.removeEventListener('message', messageHandler);
+                // We got the token. Now we need the Property ID.
+                // We'll store the token in a temp state or pass it to onSuccess if the modal handles Property ID input *after* auth or *before*.
+                // User requirement: "client can login... data... fetch"
+                // Usually property ID is needed. 
+                // Let's assume we capture the token here.
+                // Since this modal was asking for property ID manually, let's keep asking for it, 
+                // but ALSO require the OAuth token.
+                // So, 1. Connect (OAuth) -> get token. 2. Enter Property ID. 3. Confirm.
+
+                // But wait, the previous UI had manual instructions. Now we replace it.
+                // Let's modify the state to store the token.
+                onSuccessWithToken(event.data.token);
+            } else if (type === 'Meta' && event.data.type === 'META_AUTH_SUCCESS') {
+                window.removeEventListener('message', messageHandler);
+                onSuccessWithToken(event.data.token);
+            }
+        };
+
+        window.addEventListener('message', messageHandler);
     };
 
-    const copyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text);
-        alert('Copied to clipboard!');
-    };
+    // We need to change the signature of onSuccess in the parent if we want to pass data back.
+    // Or we can just use a local callback prop if we can't change the interface easily (but I can change the interface).
+    // Let's cast for now or update the interface. I'll update the interface in the file.
+
+    // Actually, looking at the previous code: `onSuccess: () => void;`
+    // I should update it to `onSuccess: (token: string, extraId?: string) => void;`
+    // But I will stick to the existing interface partially, but passing data is crucial.
+    // Let's assume for now I will modify the internal logic to handle the "Connect" button click.
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -49,131 +82,66 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, 
                     </button>
                 </div>
 
-                <div className="p-8 max-h-[80vh] overflow-y-auto">
-                    <div className="space-y-6">
-                        <div>
-                            <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <Info size={14} className="text-indigo-500" /> Instructions for Client
-                            </h4>
-                            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-                                To enable StrataPilot’s {type === 'GA4' ? 'Audience, ROI & Performance' : 'Creative Diagnostics & Ad Performance'} analysis, please provide access:
-                            </p>
+                <div className="p-8">
+                    <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                        Securely connect your account to pull real-time performance data.
+                        StrataPilot uses this to calibrate its analysis against your actual metrics.
+                    </p>
 
-                            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 space-y-4">
-                                {type === 'GA4' ? (
-                                    <>
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">1</div>
-                                            <p className="text-xs text-slate-600">Go to <strong>GA4 → Admin → Property Access Management</strong></p>
-                                        </div>
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">2</div>
-                                            <p className="text-xs text-slate-600">Click <strong>“Add user”</strong></p>
-                                        </div>
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">3</div>
-                                            <div className="flex-1">
-                                                <p className="text-xs text-slate-600 mb-2">Add this email:</p>
-                                                <div className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg group">
-                                                    <code className="text-[10px] text-indigo-600 font-mono flex-1">service@stratapilot-api.iam.gserviceaccount.com</code>
-                                                    <button onClick={() => copyToClipboard('service@stratapilot-api.iam.gserviceaccount.com')} className="p-1 hover:bg-slate-100 rounded">
-                                                        <Copy size={12} className="text-slate-400" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">4</div>
-                                            <p className="text-xs text-slate-600">Assign role: <strong>Viewer (or Analyst)</strong></p>
-                                        </div>
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">5</div>
-                                            <div className="flex-1">
-                                                <p className="text-xs text-slate-600 mb-2">Share your <strong>GA4 Property ID</strong> in the text box below</p>
-                                                <input
-                                                    type="text"
-                                                    value={propertyId}
-                                                    onChange={(e) => setPropertyId(e.target.value)}
-                                                    placeholder="Enter Property ID (e.g. 123456789)"
-                                                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-100 outline-none"
-                                                />
-                                            </div>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">1</div>
-                                            <p className="text-xs text-slate-600">Open <strong>Meta Business Settings → Users → Partners</strong></p>
-                                        </div>
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">2</div>
-                                            <p className="text-xs text-slate-600">Click <strong>“Add Partner”</strong></p>
-                                        </div>
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">3</div>
-                                            <div className="flex-1">
-                                                <p className="text-xs text-slate-600 mb-2">Enter our BM ID:</p>
-                                                <div className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg group">
-                                                    <code className="text-[10px] text-indigo-600 font-mono flex-1">192837465001</code>
-                                                    <button onClick={() => copyToClipboard('192837465001')} className="p-1 hover:bg-slate-100 rounded">
-                                                        <Copy size={12} className="text-slate-400" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">4</div>
-                                            <div className="flex-1">
-                                                <p className="text-xs text-slate-600 mb-1">Grant access to:</p>
-                                                <ul className="text-[11px] text-slate-500 list-disc ml-4 space-y-0.5">
-                                                    <li>Ad Accounts → View Performance</li>
-                                                    <li>Page Insights (optional)</li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                    {type === 'GA4' && (
+                        <div className="mb-6">
+                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">GA4 Property ID</label>
+                            <input
+                                type="text"
+                                value={propertyId}
+                                onChange={(e) => setPropertyId(e.target.value)}
+                                placeholder="e.g. 123456789"
+                                className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-200 outline-none"
+                            />
+                            <p className="text-[10px] text-slate-400 mt-2">Found in Admin &gt; Property Settings</p>
                         </div>
+                    )}
 
-                        <div>
-                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Data we will pull:</h4>
-                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
-                                {(type === 'GA4' ? [
-                                    'Website traffic & audience breakup',
-                                    'Engagement & user behavior',
-                                    'Top pages and drop-offs',
-                                    'Ad-to-landing performance',
-                                    'Conversion events & funnels'
-                                ] : [
-                                    'Ad spend, impressions, CTR, CPM, ROAS',
-                                    'Audience breakdown & delivery insights',
-                                    'Creative variations & performance shifts',
-                                    'Benchmarking across categories'
-                                ]).map((item, idx) => (
-                                    <li key={idx} className="flex items-center gap-2 text-[11px] text-slate-600 font-medium">
-                                        <div className="w-1 h-1 rounded-full bg-indigo-400"></div> {item}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
+                    <button
+                        onClick={handleConnect}
+                        disabled={type === 'GA4' && !propertyId}
+                        className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all bg-slate-900 hover:bg-slate-800 text-white shadow-lg disabled:opacity-50"
+                    >
+                        {isProcessing ? <Loader2 size={18} className="animate-spin" /> : `Log in with ${type === 'GA4' ? 'Google' : 'Facebook'}`}
+                    </button>
 
-                    <div className="mt-8 space-y-4">
-                        <button
-                            onClick={handleComplete}
-                            disabled={isProcessing}
-                            className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50"
-                        >
-                            {isProcessing ? <Loader2 size={18} className="animate-spin" /> : 'Confirm Access Granted'}
-                        </button>
-                        <p className="text-[10px] text-center text-slate-400 font-medium">
-                            Explicitly state: No data is stored, no data is modified, access is read-only and can be revoked anytime.
+                    <div className="mt-6 flex items-start gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+                        <Info size={16} className="text-blue-500 mt-0.5" />
+                        <p className="text-xs text-blue-800 leading-relaxed">
+                            Access is strictly <strong>Read-Only</strong>. We do not store your data for training.
+                            Tokens are used for this session only.
                         </p>
                     </div>
                 </div>
             </div>
         </div>
     );
+
+    function onSuccessWithToken(token: string) {
+        setIsProcessing(true);
+        // We call the parent's onSuccess, but we need to pass the token.
+        // I will attach it to the parent handler via a custom event or argument.
+        // For type safety, I should update the interface. I'll do that in a separate `multi_replace`.
+        // Wait, I am replacing the whole component here.
+        // I'll define a new helper inside to cast the prop if needed, or just update the Props definition above.
+        // I will update the Props definition at the top of the file in the replacement content.
+
+        // Actually, to make it cleaner, let's just assume passed onSuccess handles the "closing" part,
+        // but we need to pass data.
+        // I will use a custom callback passed in props: `onConnect: (token: string, id?: string) => void`
+        // But the props are `onSuccess: () => void`. 
+        // I will overload it or add a new prop.
+        // Let's modify the Props interface in the replacement content.
+        // But I need to allow the parent to update its state.
+
+        // Let's use `(window as any).postMessage` or similar? No.
+        // I'll update the parent `Dashboard.tsx` to handle the new signature.
+
+        (onSuccess as any)(token, propertyId);
+    }
 };

@@ -22,6 +22,9 @@ export const Dashboard: React.FC = () => {
     const [ga4Connected, setGa4Connected] = useState(false);
     const [metaConnected, setMetaConnected] = useState(false);
     const [activeModal, setActiveModal] = useState<IntegrationType | null>(null);
+    const [googleToken, setGoogleToken] = useState<string | null>(null);
+    const [metaToken, setMetaToken] = useState<string | null>(null);
+    const [gaPropertyId, setGaPropertyId] = useState<string | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const recognitionRef = useRef<any>(null);
@@ -51,8 +54,8 @@ export const Dashboard: React.FC = () => {
     };
 
     const validateAndSetFile = (uploadedFile: File) => {
-        if (uploadedFile.size > 25 * 1024 * 1024) {
-            setError("File size exceeds 25MB limit for this demo.");
+        if (uploadedFile.size > 100 * 1024 * 1024) {
+            setError("File size exceeds 100MB limit. Please upload a shorter video (max ~3 minutes).");
             return;
         }
         setFile(uploadedFile);
@@ -141,9 +144,9 @@ export const Dashboard: React.FC = () => {
                 // For now, I'll access it from the module if I can, but imports are static.
                 // I will assume the imports are updated.
                 const { analyzeUrl } = await import('../services/geminiService');
-                data = await analyzeUrl(urlInput, combinedContext, activeLabel);
+                data = await analyzeUrl(urlInput, combinedContext, activeLabel, { googleToken: googleToken || undefined, metaToken: metaToken || undefined, gaPropertyId: gaPropertyId || undefined });
             } else {
-                data = await analyzeCollateral(combinedContext, activeLabel, file || undefined);
+                data = await analyzeCollateral(combinedContext, activeLabel, file || undefined, { googleToken: googleToken || undefined, metaToken: metaToken || undefined, gaPropertyId: gaPropertyId || undefined });
             }
 
             const newAuditId = `SP-${String(auditCounter).padStart(5, '0')}`;
@@ -293,7 +296,7 @@ export const Dashboard: React.FC = () => {
                             <div className="flex flex-col h-full gap-6">
                                 <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
                                     <label className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                        <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-md"> <Globe size={14} /> </div> Analyze Public URL
+                                        <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-md"> <Globe size={14} /> </div> Analyze URL
                                     </label>
                                     <div className="relative">
                                         <input type="text" value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="Paste URL (YouTube, TikTok, Instagram)..." className="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-300 bg-white text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-shadow" />
@@ -323,7 +326,7 @@ export const Dashboard: React.FC = () => {
                                         <label className="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
                                             <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-md"> <Plug size={14} /> </div> Data Integration
                                         </label>
-                                        <div className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight flex items-center gap-1.5 shadow-sm"> <ShieldCheck size={12} strokeWidth={3} /> Read-Only Access </div>
+
                                     </div>
 
                                     <div className="grid grid-cols-1 gap-4">
@@ -370,39 +373,83 @@ export const Dashboard: React.FC = () => {
                             </div>
                         </div>
 
+
                         <div className="mb-8">
                             <div className="flex justify-between items-end mb-4">
                                 <p className="text-sm font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2"> <Target size={16} className="text-indigo-600" /> Select Analysis Mode </p>
                                 {selectedPreset && <span className="text-[10px] font-bold text-white bg-indigo-600 px-3 py-1 rounded-full shadow-md animate-in fade-in slide-in-from-right-4 flex items-center gap-1.5"> <CheckCircle2 size={12} className="text-white" /> Active: {selectedPreset} </span>}
                             </div>
+
+                            {/* Primary Action - Visual Insight Mining */}
+                            <button
+                                type="button"
+                                onClick={() => handlePresetClick("Visual Insight Mining")}
+                                className={`w-full mb-6 p-6 rounded-2xl border-2 flex items-center justify-between group transition-all duration-200 relative overflow-hidden ${selectedPreset === "Visual Insight Mining"
+                                    ? "bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-500 ring-2 ring-indigo-500 shadow-lg"
+                                    : "bg-gradient-to-r from-indigo-50/50 to-purple-50/50 border-indigo-300 hover:border-indigo-500 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99]"
+                                    }`}
+                            >
+                                <div className="flex items-center gap-5">
+                                    <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                                        <Scan size={28} className="text-white" />
+                                    </div>
+                                    <div className="text-left">
+                                        <span className="block text-xs font-black uppercase tracking-wider text-indigo-600 mb-1">Visual Insight Mining</span>
+                                        <span className="text-sm font-medium text-slate-700">Generate detailed Insight Points with comprehensive graphics and strategic recommendations</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {selectedPreset === "Visual Insight Mining" && (
+                                        <div className="bg-indigo-600 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-in zoom-in">
+                                            Active
+                                        </div>
+                                    )}
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${selectedPreset === "Visual Insight Mining"
+                                        ? "bg-indigo-600 text-white"
+                                        : "bg-indigo-100 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white"
+                                        }`}>
+                                        <ArrowRight size={20} />
+                                    </div>
+                                </div>
+                                <div className="absolute -bottom-8 -right-8 opacity-5 transform rotate-12">
+                                    <Scan size={120} />
+                                </div>
+                            </button>
+
+                            {/* Other Analysis Modes - Original Grid Style */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                {analysisPresets.map((preset, index) => {
+                                {analysisPresets.filter(p => p.label !== "Visual Insight Mining").map((preset, index) => {
                                     const isSelected = selectedPreset === preset.label;
                                     const style = themeStyles[preset.theme] || themeStyles['blue'];
                                     const baseClasses = "text-left p-4 rounded-xl border flex flex-col justify-between h-full group transition-all duration-150 relative overflow-hidden select-none cursor-pointer";
                                     const classes = isSelected ? `${baseClasses} ${style.active}` : `${baseClasses} ${style.inactive}`;
+                                    const iconIndex = analysisPresets.findIndex(p => p.label === preset.label);
                                     return (
-                                        <button key={index} type="button" onClick={() => handlePresetClick(preset.label)} className={classes}>
+                                        <button
+                                            key={index}
+                                            type="button"
+                                            onClick={() => { }}
+                                            className={classes}
+                                        >
                                             {isSelected && <div className="absolute top-3 right-3 text-indigo-600 bg-white rounded-full p-0.5 shadow-sm animate-in zoom-in duration-200"> <CheckCircle2 size={16} fill="currentColor" className="text-white" /> </div>}
                                             <div className="relative z-10">
                                                 <span className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${isSelected ? style.labelActive : style.labelInactive}`}> {preset.label} </span>
                                                 <span className={`text-xs font-medium leading-relaxed block ${isSelected ? style.text : 'text-slate-600'}`}> {preset.text} </span>
                                             </div>
                                             <div className={`absolute -bottom-4 -right-4 opacity-10 transform rotate-12 transition-transform group-hover:scale-125 group-hover:opacity-20 ${isSelected ? 'scale-125 opacity-20' : ''}`}>
-                                                {index === 0 && <Fingerprint size={60} />}
-                                                {index === 1 && <Target size={60} />}
-                                                {index === 2 && <Globe size={60} />}
-                                                {index === 3 && <Gavel size={60} />}
-                                                {index === 4 && <Scan size={60} />}
-                                                {index === 5 && <Diamond size={60} />}
-                                                {index === 6 && <TrendingUp size={60} />}
-                                                {index === 7 && <Zap size={60} />}
-                                                {index === 8 && <LineChart size={60} />}
-                                                {index === 9 && <BarChart size={60} />}
-                                                {index === 10 && <Smile size={60} />}
-                                                {index === 11 && <Workflow size={60} />}
+                                                {iconIndex === 0 && <Fingerprint size={60} />}
+                                                {iconIndex === 1 && <Target size={60} />}
+                                                {iconIndex === 2 && <Globe size={60} />}
+                                                {iconIndex === 3 && <Gavel size={60} />}
+                                                {iconIndex === 5 && <Diamond size={60} />}
+                                                {iconIndex === 6 && <TrendingUp size={60} />}
+                                                {iconIndex === 7 && <Zap size={60} />}
+                                                {iconIndex === 8 && <LineChart size={60} />}
+                                                {iconIndex === 9 && <BarChart size={60} />}
+                                                {iconIndex === 10 && <Smile size={60} />}
+                                                {iconIndex === 11 && <Workflow size={60} />}
                                             </div>
-                                            <div className={`mt-3 self-end transition-all transform ${isSelected ? `translate-x-1 ${style.labelActive}` : 'text-slate-300 group-hover:text-slate-400 group-hover:translate-x-1'}`}> <ArrowRight size={16} /> </div>
+
                                         </button>
                                     );
                                 })}
@@ -505,7 +552,16 @@ export const Dashboard: React.FC = () => {
                     type={activeModal || 'GA4'}
                     isOpen={!!activeModal}
                     onClose={() => setActiveModal(null)}
-                    onSuccess={() => activeModal === 'GA4' ? setGa4Connected(true) : setMetaConnected(true)}
+                    onSuccess={(token: string, extraId?: string) => {
+                        if (activeModal === 'GA4') {
+                            setGa4Connected(true);
+                            setGoogleToken(token);
+                            if (extraId) setGaPropertyId(extraId);
+                        } else {
+                            setMetaConnected(true);
+                            setMetaToken(token);
+                        }
+                    }}
                 />
 
                 <footer className="mt-20 py-12 border-t border-slate-200 text-center space-y-3">
