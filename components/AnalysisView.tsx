@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import ErrorBoundary from './ErrorBoundary';
 
 interface AnalysisViewProps {
   data: AnalysisResult;
@@ -380,6 +381,36 @@ const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Parti
 };
 
 const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
+  // DEFENSIVE GUARD: Handle missing or incomplete data
+  if (!detail || !detail.archetype || !detail.quote || !detail.reasoning) {
+    console.warn('[BrandArchetypeMatrix] Received incomplete detail data - rendering empty state', {
+      hasDetail: !!detail,
+      hasArchetype: detail?.archetype,
+      hasQuote: detail?.quote,
+      hasReasoning: detail?.reasoning
+    });
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-white shadow-md rounded-xl border border-slate-100">
+            <Crown size={24} className="text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BRAND ARCHETYPE MATRIX</h3>
+          </div>
+        </div>
+        <div className="bg-slate-50 rounded-[28px] p-12 text-center border border-slate-200">
+          <Crown size={48} className="mx-auto text-slate-300 mb-4" />
+          <h3 className="text-lg font-bold text-slate-600 mb-2">Brand Archetype Data Not Available</h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto">
+            Brand archetype detection requires specific brand personality signals from creative content.
+            Provide brand-focused visual or narrative context for archetype classification.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const archetypes = [
     { name: "The Innocent", value: "SAFETY", icon: Sun },
     { name: "The Sage", value: "KNOWLEDGE", icon: BookOpen },
@@ -395,7 +426,7 @@ const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
     { name: "The Creator", value: "INNOVATION", icon: Palette },
   ];
 
-  const detected = detail?.archetype || "The Ruler";
+  const detected = detail.archetype;  // No misleading default
 
   return (
     <div className="space-y-6">
@@ -436,7 +467,7 @@ const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
         <div className="lg:col-span-4 bg-slate-50/80 rounded-[28px] p-8 border border-slate-100 flex flex-col h-full">
           <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">DETECTED ARCHETYPE</h5>
           <h4 className="text-4xl font-serif font-bold text-amber-800 mb-2">{detected}</h4>
-          <p className="text-[14px] font-medium text-slate-500 italic mb-10 leading-relaxed">"{detail?.quote}"</p>
+          <p className="text-[14px] font-medium text-slate-500 italic mb-10 leading-relaxed">"{detail.quote}"</p>
 
           <div className="bg-white rounded-2xl p-6 border border-slate-200 flex-grow shadow-sm">
             <div className="flex items-center gap-2 mb-4 text-indigo-600">
@@ -444,7 +475,7 @@ const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
               <h5 className="text-[11px] font-black uppercase tracking-[0.15em]">AI REASONING</h5>
             </div>
             <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
-              {detail?.reasoning}
+              {detail.reasoning}
             </p>
           </div>
         </div>
@@ -454,6 +485,32 @@ const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
 };
 
 const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[] }> = ({ cards }) => {
+  // DEFENSIVE GUARD: Handle missing or empty data
+  if (!cards || cards.length === 0) {
+    console.warn('[BrandStrategyWindow] Received empty or undefined cards - rendering empty state');
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-white shadow-md rounded-xl border border-slate-100">
+            <LayoutGrid size={24} className="text-slate-700" />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BRAND STRATEGY WINDOW</h3>
+            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Decoding the master frame of brand intent.</p>
+          </div>
+        </div>
+        <div className="bg-slate-50 rounded-[28px] p-12 text-center border border-slate-200">
+          <LayoutGrid size={48} className="mx-auto text-slate-300 mb-4" />
+          <h3 className="text-lg font-bold text-slate-600 mb-2">Brand Strategy Data Not Available</h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto">
+            Brand strategy analysis requires visual creative input or brand-specific context.
+            Try uploading an image, video, or providing more detailed brand information.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const iconMap: Record<string, any> = {
     "RATIONAL PROMISE": { icon: Brain, color: "text-blue-500", bg: "bg-blue-50", border: "border-blue-100" },
     "EMOTIONAL PROMISE": { icon: Heart, color: "text-rose-500", bg: "bg-rose-50", border: "border-rose-100" },
@@ -768,14 +825,28 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
   const topRef = useRef<HTMLDivElement>(null);
 
   const handleDownloadPdf = async () => {
-    if (!topRef.current) return;
+    // Capture the element reference before any state changes
+    const element = topRef.current;
+    if (!element) {
+      console.error("PDF export failed: No content element found");
+      alert("Failed to generate PDF. Please try again.");
+      return;
+    }
+
     setIsPdfMode(true);
 
-    // Allow React 100ms to render all sections
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Wait for React to re-render all sections in PDF mode
+    // Using requestAnimationFrame + timeout for more reliable DOM update detection
+    await new Promise(resolve => {
+      requestAnimationFrame(() => {
+        setTimeout(resolve, 300);
+      });
+    });
 
     try {
-      const canvas = await html2canvas(topRef.current, {
+      // Re-acquire the reference after the state update
+      const targetElement = topRef.current || element;
+      const canvas = await html2canvas(targetElement, {
         scale: 2,
         useCORS: true,
         logging: false,
@@ -960,12 +1031,16 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
 
         {/* TAB 6: BRAND STRATEGY */}
         {(activeTab === "brand-strategy" || isPdfMode) && (
-          <BrandStrategyWindow cards={localData.brandStrategyWindow} />
+          <ErrorBoundary>
+            <BrandStrategyWindow cards={localData.brandStrategyWindow} />
+          </ErrorBoundary>
         )}
 
         {/* TAB 7: BRAND ARCHETYPE */}
         {(activeTab === "brand-archetype" || isPdfMode) && (
-          <BrandArchetypeMatrix detail={localData.brandArchetypeDetail} />
+          <ErrorBoundary>
+            <BrandArchetypeMatrix detail={localData.brandArchetypeDetail} />
+          </ErrorBoundary>
         )}
 
         {/* TAB 8: ROI UPLIFT */}

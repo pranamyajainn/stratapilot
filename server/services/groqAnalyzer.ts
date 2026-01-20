@@ -6,6 +6,8 @@
 
 import { getLLMOrchestrator, LLMOrchestrator } from './llmRouter/index.js';
 import type { VisualFeatures } from './llmRouter/types.js';
+import { classifyInputCapability, type CapabilityLevel } from './capabilityClassifier.js';
+import { selectPromptTemplate } from './conditionalPrompts.js';
 
 // =====================================================
 // ANALYSIS PROMPTS
@@ -183,14 +185,17 @@ export class GroqStrategicAnalyzer {
 
     /**
      * Generate full strategic analysis from visual features
+     * Now capability-aware
      */
     async analyze(
         visualFeatures: VisualFeatures,
         textContext: string,
         analysisLabel: string,
-        competitiveContext?: string
+        competitiveContext?: string,
+        capability?: CapabilityLevel  // NEW: Capability level from classifier
     ): Promise<StrategicAnalysisResult> {
         console.log('[GroqAnalyzer] Starting strategic analysis...');
+        console.log('[GroqAnalyzer] Capability level:', capability || 'HIGH (default)');
 
         // Build context from visual features
         const visualContext = this.formatVisualContext(visualFeatures);
@@ -199,7 +204,7 @@ export class GroqStrategicAnalyzer {
         const [diagnostics, audience, brand, roi] = await Promise.all([
             this.generateDiagnostics(visualContext, textContext, analysisLabel, competitiveContext),
             this.generateAudienceProfile(visualContext, textContext),
-            this.generateBrandAnalysis(visualContext, textContext),
+            this.generateBrandAnalysis(visualContext, textContext, visualFeatures, capability || 'HIGH'),  // Pass capability
             this.generateROIMetrics(visualContext, visualFeatures),
         ]);
 
@@ -342,27 +347,26 @@ Output JSON with demographics, psychographics, and behavioral sections.
     }
 
     /**
-     * Generate brand analysis
+     * Generate brand analysis with capability-aware conditional prompting
      */
     private async generateBrandAnalysis(
         visualContext: string,
-        textContext: string
+        textContext: string,
+        visualFeatures: VisualFeatures,
+        capability: CapabilityLevel
     ): Promise<BrandAnalysis> {
-        const prompt = `
-${visualContext}
+        // Select prompt template based on capability
+        const template = selectPromptTemplate(capability);
 
-## USER CONTEXT
-${textContext}
+        const promptContext = {
+            visualContext: visualFeatures ? visualContext : undefined,
+            textContext,
+            analysisLabel: 'Brand Positioning Analysis'
+        };
 
-Analyze the brand positioning based on visual evidence.
-Include: consumerInsight, functionalBenefit, emotionalBenefit, brandPersonality, reasonsToBelieve.
-Also provide brandStrategyWindow (10 items) and brandArchetypeDetail.
-`;
-
-        const response = await this.orchestrator.process<BrandAnalysis>(
-            `You are a brand strategist. Analyze brand positioning from visual evidence only.
-Output valid JSON with brand analysis fields.`,
-            prompt,
+        const response = await this.orchestrator.process<any>(
+            template.system,
+            template.userTemplate(promptContext),
             {
                 taskType: 'ideation',
                 responseFormat: 'json',
@@ -371,10 +375,72 @@ Output valid JSON with brand analysis fields.`,
         );
 
         if (response.success && response.data) {
-            return response.data;
+            // Log what was generated vs requested
+            this.logYield(capability, response.data);
+            return this.normalizeBrandOutput(response.data, capability);
         }
 
         return this.getDefaultBrand();
+    }
+
+    /**
+     * Log yield metrics
+     */
+    private logYield(capability: CapabilityLevel, data: any) {
+        const hasBrandStrategy = data.brandStrategyWindow && data.brandStrategyWindow.length > 0;
+        const hasBrandArchetype = data.brandArchetypeDetail && data.brandArchetypeDetail.archetype;
+
+        console.log('[YIELD] Capability:', capability);
+
+        if (hasBrandStrategy) {
+            console.log(`[YIELD] Generated: BrandStrategy (${data.brandStrategyWindow.length}/10 cards)`);
+        } else if (data.brandStrategyWindowUnavailable) {
+            console.log('[YIELD] Skipped: BrandStrategy - reason:', data.brandStrategyWindowUnavailable.reason);
+        }
+
+        if (hasBrandArchetype) {
+            const confidence = data.brandArchetypeDetail.confidence || 'unspecified';
+            console.log(`[YIELD] Generated: BrandArchetype (confidence: ${confidence})`);
+        } else if (data.brandArchetypeUnavailable) {
+            console.log('[YIELD] Skipped: BrandArchetype - reason:', data.brandArchetypeUnavailable.reason);
+        }
+    }
+
+    /**
+     * Normalize LLM brand output based on capability
+     */
+    private normalizeBrandOutput(llmData: any, capability: CapabilityLevel): BrandAnalysis {
+        const normalized: any = {
+            consumerInsight: llmData.consumerInsight || llmData.brandAnalysis?.consumerInsight || "Audience seeks reliable solutions",
+            functionalBenefit: llmData.functionalBenefit || llmData.brandAnalysis?.functionalBenefit || "Delivers on core promise",
+            emotionalBenefit: llmData.emotionalBenefit || llmData.brandAnalysis?.emotionalBenefit || "Provides confidence",
+            brandPersonality: llmData.brandPersonality || llmData.brandAnalysis?.brandPersonality || "Trustworthy and approachable",
+            reasonsToBelieve: llmData.reasonsToBelieve || llmData.brandAnalysis?.reasonsToBelieve || ["Visual quality", "Clear messaging"]
+        };
+
+        // Handle brandStrategyWindow
+        if (llmData.brandStrategyWindow && llmData.brandStrategyWindow.length > 0) {
+            normalized.brandStrategyWindow = llmData.brandStrategyWindow;
+            console.log('[OUTPUT-NORMALIZE] BrandStrategy: PARTIAL', `(${llmData.brandStrategyWindow.length}/10 cards)`);
+        } else if (llmData.brandStrategyWindowUnavailable) {
+            // Preserve unavailability metadata (will be handled in server.ts)
+            console.log('[OUTPUT-NORMALIZE] BrandStrategy: UNAVAILABLE -', llmData.brandStrategyWindowUnavailable.reason);
+        }
+
+        // Handle brandArchetypeDetail
+        if (llmData.brandArchetypeDetail && llmData.brandArchetypeDetail.archetype) {
+            normalized.brandArchetypeDetail = llmData.brandArchetypeDetail;
+            console.log('[OUTPUT-NORMALIZE] BrandArchetype: GENERATED -', llmData.brandArchetypeDetail.archetype);
+        } else if (llmData.brandArchetypeUnavailable) {
+            // Preserve unavailability metadata
+            console.log('[OUTPUT-NORMALIZE] BrandArchetype: UNAVAILABLE -', llmData.brandArchetypeUnavailable.reason);
+        }
+
+        // Attach unavailable metadata to return object (will be extracted in server.ts)
+        (normalized as any)._brandStrategyUnavailable = llmData.brandStrategyWindowUnavailable;
+        (normalized as any)._brandArchetypeUnavailable = llmData.brandArchetypeUnavailable;
+
+        return normalized;
     }
 
     /**

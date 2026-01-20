@@ -19,6 +19,8 @@ import { TrackedIndustry, TRACKED_INDUSTRIES, INDUSTRY_KEYWORDS } from './types/
 import { getLLMOrchestrator } from './services/llmRouter/index.js';
 import { getGeminiCompiler } from './services/geminiCompiler.js';
 import { getGroqAnalyzer } from './services/groqAnalyzer.js';
+import { classifyInputCapability } from './services/capabilityClassifier.js';
+import competitiveContextGenerator from './services/competitiveContext.js';
 
 // ES Module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -602,13 +604,16 @@ const analyzeCollateralHybrid = async (
     mimeType?: string | null,
     fileUri?: string | null
 ): Promise<AnalysisResult> => {
+    console.log(`[RUNTIME-VERIFY] ===== HYBRID ANALYSIS PIPELINE START =====`);
     validateInputs(textContext, analysisLabel, fileData, mimeType, fileUri);
 
     const hasMedia = !!(fileData || fileUri);
+    console.log(`[RUNTIME-VERIFY] Has Media: ${hasMedia}`);
 
     // If no media, skip visual extraction
     if (!hasMedia) {
         console.log('[HYBRID] No media provided, using text-only analysis via Groq');
+        console.log(`[RUNTIME-VERIFY] Calling: analyzeTextOnly`);
         return analyzeTextOnly(textContext, analysisLabel);
     }
 
@@ -616,11 +621,23 @@ const analyzeCollateralHybrid = async (
 
     // Step 1: Gemini extracts visual features (COMPILER mode)
     console.log('[HYBRID] Step 1: Gemini visual extraction...');
+    console.log(`[RUNTIME-VERIFY] Invoking: GeminiCompiler.extractFeatures`);
     const geminiCompiler = getGeminiCompiler();
     const visualFeatures = await geminiCompiler.extractFeatures(fileData, mimeType, fileUri);
     console.log('[HYBRID] Visual features extracted');
+    console.log(`[RUNTIME-VERIFY] Model Used: Gemini (visual extraction)`);
 
-    // Step 2: Get competitive context (if applicable)
+    // Step 2: Classify input capability
+    console.log('[HYBRID] Step 2: Classify input capability...');
+    const classification = classifyInputCapability(
+        textContext,
+        true,  // hasMedia
+        visualFeatures
+    );
+    console.log(`[INPUT-CLASSIFY] Capability: ${classification.level}`);
+    console.log(`[INPUT-CLASSIFY] Reasoning: ${classification.reasoning}`);
+
+    // Step 3: Get competitive context (if applicable)
     let competitiveContextBlock = "";
     try {
         const inferredIndustry = inferIndustryFromContext(textContext);
@@ -633,19 +650,39 @@ const analyzeCollateralHybrid = async (
         console.warn('[HYBRID] Competitive context skipped:', error.message);
     }
 
-    // Step 3: Groq generates strategic analysis
-    console.log('[HYBRID] Step 2: Groq strategic analysis...');
+    // Step 4: Groq generates strategic analysis (capability-aware)
+    console.log('[HYBRID] Step 3: Groq strategic analysis...');
+    console.log(`[RUNTIME-VERIFY] Invoking: GroqAnalyzer.analyze`);
     const groqAnalyzer = getGroqAnalyzer();
     const strategicAnalysis = await groqAnalyzer.analyze(
         visualFeatures,
         textContext,
         analysisLabel,
-        competitiveContextBlock
+        competitiveContextBlock,
+        classification.level  // NEW: Pass capability level
     );
     console.log('[HYBRID] Strategic analysis complete');
+    console.log(`[RUNTIME-VERIFY] Model Used: Groq (strategic analysis)`);
+    console.log(`[RUNTIME-VERIFY] ===== HYBRID ANALYSIS PIPELINE END =====`);
+
+    // DEFENSIVE NORMALIZATION: Log when LLM output is incomplete
+    const hasBrandStrategy = strategicAnalysis.brandAnalysis?.brandStrategyWindow &&
+        strategicAnalysis.brandAnalysis.brandStrategyWindow.length > 0;
+    const hasBrandArchetype = strategicAnalysis.brandAnalysis?.brandArchetypeDetail &&
+        strategicAnalysis.brandAnalysis.brandArchetypeDetail.archetype;
+
+    if (!hasBrandStrategy) {
+        console.warn('[BACKEND-NORMALIZE] LLM did not return brandStrategyWindow - frontend will show empty state');
+    }
+    if (!hasBrandArchetype) {
+        console.warn('[BACKEND-NORMALIZE] LLM did not return brandArchetypeDetail - frontend will show empty state');
+    }
+    if (!strategicAnalysis.industry) {
+        console.warn('[BACKEND-NORMALIZE] LLM did not return industry classification');
+    }
 
     // Map to AnalysisResult format
-    return {
+    const result: any = {
         demographics: strategicAnalysis.audience.demographics,
         psychographics: strategicAnalysis.audience.psychographics,
         behavioral: strategicAnalysis.audience.behavioral,
@@ -657,13 +694,27 @@ const analyzeCollateralHybrid = async (
             brandPersonality: strategicAnalysis.brandAnalysis.brandPersonality,
             reasonsToBelieve: strategicAnalysis.brandAnalysis.reasonsToBelieve,
         },
-        brandStrategyWindow: strategicAnalysis.brandAnalysis.brandStrategyWindow,
-        brandArchetypeDetail: strategicAnalysis.brandAnalysis.brandArchetypeDetail,
+        // Pass through undefined if LLM didn't generate - frontend guards handle this
+        brandStrategyWindow: hasBrandStrategy ? strategicAnalysis.brandAnalysis.brandStrategyWindow : undefined,
+        brandArchetypeDetail: hasBrandArchetype ? strategicAnalysis.brandAnalysis.brandArchetypeDetail : undefined,
         roiMetrics: strategicAnalysis.roiMetrics,
         modelHealth: strategicAnalysis.modelHealth,
         validationSuite: strategicAnalysis.validationSuite,
         industry: strategicAnalysis.industry,
     };
+
+    // Extract and preserve unavailability metadata (attached by Groq analyzer)
+    const brandAnalysisAny = strategicAnalysis.brandAnalysis as any;
+    if (brandAnalysisAny._brandStrategyUnavailable) {
+        result.brandStrategyUnavailable = brandAnalysisAny._brandStrategyUnavailable;
+        console.log('[BACKEND-NORMALIZE] Preserved BrandStrategy unavailability metadata');
+    }
+    if (brandAnalysisAny._brandArchetypeUnavailable) {
+        result.brandArchetypeUnavailable = brandAnalysisAny._brandArchetypeUnavailable;
+        console.log('[BACKEND-NORMALIZE] Preserved BrandArchetype unavailability metadata');
+    }
+
+    return result;
 };
 
 /**
@@ -854,11 +905,14 @@ const analyzeCollateralSmart = async (
     mimeType?: string | null,
     fileUri?: string | null
 ): Promise<AnalysisResult> => {
+    console.log(`[RUNTIME-VERIFY] analyzeCollateralSmart called`);
     if (USE_HYBRID_ANALYSIS) {
         console.log('[ROUTER] Using HYBRID mode (Gemini + Groq)');
+        console.log(`[RUNTIME-VERIFY] Routing to: analyzeCollateralHybrid`);
         return analyzeCollateralHybrid(textContext, analysisLabel, fileData, mimeType, fileUri);
     } else {
         console.log('[ROUTER] Using LEGACY mode (Gemini only)');
+        console.log(`[RUNTIME-VERIFY] Routing to: analyzeCollateral (legacy)`);
         return analyzeCollateral(textContext, analysisLabel, fileData, mimeType, fileUri);
     }
 };
@@ -1061,14 +1115,19 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
         const { textContext, analysisLabel, fileData, mimeType, googleToken, metaToken, gaPropertyId } = req.body;
 
         console.log(`[API] /api/analyze called with label="${analysisLabel}", hasFile=${!!fileData}, mimeType=${mimeType}`);
+        console.log(`[RUNTIME-VERIFY] ===== /api/analyze REQUEST START =====`);
+        console.log(`[RUNTIME-VERIFY] Timestamp: ${new Date().toISOString()}`);
+        console.log(`[RUNTIME-VERIFY] Hybrid Mode Config: USE_HYBRID_ANALYSIS=${USE_HYBRID_ANALYSIS}`);
 
         // Generate content hash for cache lookup
         const contentHash = fileData ? generateFileHash(fileData) : generateFileHash(textContext || '');
 
         // Check cache first
         const cacheResult = await checkCache(contentHash, analysisLabel);
+        console.log(`[RUNTIME-VERIFY] Cache Check: hit=${cacheResult.hit}`);
         if (cacheResult.hit) {
             console.log(`[CACHE] Returning cached result (Industry: ${cacheResult.record?.industry})`);
+            console.log(`[RUNTIME-VERIFY] ===== CACHE HIT - RETURNING CACHED RESULT =====`);
             return res.json({ success: true, data: cacheResult.analysis, cached: true });
         }
 
@@ -1129,8 +1188,13 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
             result = await analyzeCollateralSmart(fullContext, analysisLabel, null, mimeType, fileUri);
         } else {
             // For images, inline base64 is fine (they're smaller)
+            console.log(`[RUNTIME-VERIFY] Calling analyzeCollateralSmart (image path)`);
             result = await analyzeCollateralSmart(fullContext, analysisLabel, fileData, mimeType);
         }
+
+        console.log(`[RUNTIME-VERIFY] Analysis Complete - Industry: ${result.industry || 'N/A'}`);
+        console.log(`[RUNTIME-VERIFY] ===== /api/analyze REQUEST END =====`);
+
 
         // Store result in cache
         await storeInCache(contentHash, analysisLabel, result, { mimeType });

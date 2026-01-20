@@ -51,6 +51,23 @@ export interface DiagnosticItem {
   isHumanEdited?: boolean;
 }
 
+// Unavailability metadata for Brand Strategy Window
+export interface BrandStrategyUnavailable {
+  missingCards?: string[];
+  reason: string;
+  partialInsights?: string;
+  whenAvailable?: string;
+}
+
+// Unavailability metadata for Brand Archetype
+export interface BrandArchetypeUnavailable {
+  available: false;
+  reason: string;
+  hint?: string;
+  visualHint?: string;
+  verbalHint?: string;
+}
+
 export interface BrandAnalysis {
   consumerInsight: string;
   functionalBenefit: string;
@@ -81,6 +98,7 @@ export interface BrandArchetypeDetail {
   value: string;
   quote: string;
   reasoning: string;
+  confidence?: 'high' | 'moderate' | 'low';  // NEW: Confidence level for partial inferences
 }
 
 export interface ModelHealth {
@@ -119,13 +137,16 @@ export interface AnalysisResult {
   behavioral: Behavioral;
   adDiagnostics: DiagnosticItem[];
   brandAnalysis?: BrandAnalysis;
-  brandStrategyWindow: BrandStrategyCard[];
+  brandStrategyWindow?: BrandStrategyCard[];  // OPTIONAL: Not generated for text-only analysis
+  brandStrategyUnavailable?: BrandStrategyUnavailable;  // NEW: Explainability for missing strategy
   brandArchetypeDetail?: BrandArchetypeDetail;
+  brandArchetypeUnavailable?: BrandArchetypeUnavailable;  // NEW: Explainability for missing archetype
   roiMetrics?: RoiMetrics;
   modelHealth?: ModelHealth;
   validationSuite?: ValidationMetrics;
   campaignStrategy?: CampaignStrategy;
   transcript?: string;
+  industry?: string;  // Added for industry detection
 }
 
 export type LoadingState = 'idle' | 'analyzing' | 'strategizing' | 'success' | 'error';
