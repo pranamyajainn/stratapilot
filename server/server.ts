@@ -12,6 +12,10 @@ import axios from 'axios';
 import ytdl from '@distube/ytdl-core';
 import { getGoogleAuthUrl, getGoogleTokens, fetchGA4Data } from './services/googleAnalytics.js';
 import { getMetaAuthUrl, getMetaTokens, fetchMetaAdsData } from './services/metaAds.js';
+import { initDatabase } from './services/insightDb.js';
+import { checkCache, storeInCache, generateFileHash, generateUrlHash, getInsightStats } from './services/insightCache.js';
+import { initCreativeMemoryDatabase, CompetitiveContextGenerator, getCreativeMemoryStats } from './services/creativeMemory/index.js';
+import { TrackedIndustry, TRACKED_INDUSTRIES, INDUSTRY_KEYWORDS } from './types/creativeMemoryTypes.js';
 
 // ES Module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -31,6 +35,7 @@ interface AnalysisResult {
     modelHealth?: any;
     validationSuite?: any;
     campaignStrategy?: any;
+    industry?: string;  // Auto-detected industry classification
 }
 
 interface CampaignStrategy {
@@ -412,7 +417,11 @@ const analysisResponseSchema = {
             required: ["hookScore", "clarityScore", "emotionCurveEngagement", "brandVisibilityScore", "predictedDropOff", "predictedVtr", "predictedCtr", "roiUplift"],
         },
         adDiagnostics: diagnosticsSchema,
-        transcript: { type: Type.STRING }
+        transcript: { type: Type.STRING },
+        industry: {
+            type: Type.STRING,
+            description: "Classify this ad into one industry: FMCG, BFSI, Auto, Health, Tech, Retail, Telecom, F&B, Entertainment, or Other"
+        }
     },
     required: ["modelHealth", "validationSuite", "demographics", "psychographics", "behavioral", "brandAnalysis", "brandStrategyWindow", "brandArchetypeDetail", "roiMetrics", "adDiagnostics"],
 };
@@ -438,6 +447,27 @@ const strategyResponseSchema = {
         successMetrics: { type: Type.ARRAY, items: { type: Type.STRING } },
     },
     required: ["keyPillars", "keyMessages", "channelSelection", "timeline", "budgetAllocation", "successMetrics"],
+};
+
+// --- COMPETITIVE CONTEXT GENERATOR ---
+const competitiveContextGenerator = new CompetitiveContextGenerator();
+
+/**
+ * Infer industry from text context using keyword matching
+ */
+const inferIndustryFromContext = (textContext: string): TrackedIndustry | null => {
+    if (!textContext) return null;
+    const lowerContext = textContext.toLowerCase();
+
+    for (const industry of TRACKED_INDUSTRIES) {
+        const keywords = INDUSTRY_KEYWORDS[industry];
+        for (const keyword of keywords) {
+            if (lowerContext.includes(keyword.toLowerCase())) {
+                return industry;
+            }
+        }
+    }
+    return null;
 };
 
 // --- CORE AI FUNCTIONS ---
@@ -470,8 +500,26 @@ const analyzeCollateral = async (
         });
     }
 
+    // --- COMPETITIVE CONTEXT INJECTION ---
+    let competitiveContextBlock = "";
+    try {
+        const inferredIndustry = inferIndustryFromContext(textContext);
+        if (inferredIndustry) {
+            console.log(`[ANALYSIS] Detected industry: ${inferredIndustry}, generating competitive context...`);
+            const competitiveContext = await competitiveContextGenerator.generateContext(inferredIndustry);
+            competitiveContextBlock = competitiveContextGenerator.formatForGemini(competitiveContext);
+            console.log(`[ANALYSIS] Competitive context generated (sample size: ${competitiveContext.sample_size})`);
+        }
+    } catch (error: any) {
+        console.warn('[ANALYSIS] Failed to generate competitive context:', error.message);
+        // Continue without competitive context - it's enhancement, not critical
+    }
+
     const SYSTEM_INSTRUCTION = `
 ${BASE_KNOWLEDGE}
+
+${competitiveContextBlock}
+
 Analyze this creative through the lens of: "${analysisLabel}".
 Strictly follow the JSON schema provided.
 
@@ -480,11 +528,13 @@ Strictly follow the JSON schema provided.
 2.  **Refusal Condition**: If the creative is blank, ambiguous, or corrupted, set scores to 0 and transparently state the issue in 'commentary'.
 3.  **No Hallucinated Benchmarks**: When comparing to "benchmarks", refer to *general category best practices*, not specific external competitors.
 4.  **Transcript Extraction**: If the asset contains speech or text overlays, provide a verbatim or summary transcript in the 'transcript' field. If silent/no text, return "No distinct speech or text detected."
+5.  **Competitive Context**: If competitive context is provided above, use it to explain over-conformity risks, saturation patterns, and differentiation opportunities in the adDiagnostics commentary.
 
 **OUTPUT REQUIREMENTS:**
 - Be concise, objective, and analyst-toned.
 - Avoid marketing fluff.
 - If a field requires data you cannot observe (e.g., 'buyingHabits'), infer strictly from the *target audience implied by the creative's content*, and qualify it as an inference.
+- If competitive context is present, include comparative observations in the 'commentary' fields where relevant.
 `;
 
     parts.push({ text: `Analyze this creative. User Context: ${textContext}` });
@@ -627,6 +677,16 @@ app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunct
 
         console.log(`[API] /api/analyze-url called for ${videoUrl}`);
 
+        // Generate URL hash for cache (weekly expiry for freshness)
+        const contentHash = generateUrlHash(videoUrl);
+
+        // Check cache first
+        const cacheResult = await checkCache(contentHash, analysisLabel);
+        if (cacheResult.hit) {
+            console.log(`[CACHE] Returning cached URL result (Industry: ${cacheResult.record?.industry})`);
+            return res.json({ success: true, data: cacheResult.analysis, cached: true });
+        }
+
         const tempFileName = `${uuidv4()}.mp4`; // Default extension, might change
         tempFilePath = path.join(os.tmpdir(), tempFileName);
 
@@ -670,7 +730,10 @@ app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunct
         const fullContext = `${textContext || ''}${externalDataContext}`;
         const result = await analyzeCollateral(fullContext, analysisLabel, null, mimeType || 'video/mp4', fileUri);
 
-        res.json({ success: true, data: result });
+        // Store in cache
+        await storeInCache(contentHash, analysisLabel, result, { sourceUrl: videoUrl, mimeType: mimeType || 'video/mp4' });
+
+        res.json({ success: true, data: result, cached: false });
 
     } catch (error) {
         next(error);
@@ -689,6 +752,16 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
         const { textContext, analysisLabel, fileData, mimeType, googleToken, metaToken, gaPropertyId } = req.body;
 
         console.log(`[API] /api/analyze called with label="${analysisLabel}", hasFile=${!!fileData}, mimeType=${mimeType}`);
+
+        // Generate content hash for cache lookup
+        const contentHash = fileData ? generateFileHash(fileData) : generateFileHash(textContext || '');
+
+        // Check cache first
+        const cacheResult = await checkCache(contentHash, analysisLabel);
+        if (cacheResult.hit) {
+            console.log(`[CACHE] Returning cached result (Industry: ${cacheResult.record?.industry})`);
+            return res.json({ success: true, data: cacheResult.analysis, cached: true });
+        }
 
         // Fetch External Data
         let externalDataContext = "";
@@ -750,7 +823,10 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
             result = await analyzeCollateral(fullContext, analysisLabel, fileData, mimeType);
         }
 
-        res.json({ success: true, data: result });
+        // Store result in cache
+        await storeInCache(contentHash, analysisLabel, result, { mimeType });
+
+        res.json({ success: true, data: result, cached: false });
     } catch (error) {
         next(error);
     } finally {
@@ -759,6 +835,16 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
             fs.unlinkSync(tempFilePath);
             console.log(`[CLEANUP] Removed temp file: ${tempFilePath}`);
         }
+    }
+});
+
+// GET /api/insight-stats - Cache statistics
+app.get('/api/insight-stats', (req, res) => {
+    try {
+        const stats = getInsightStats();
+        res.json({ success: true, data: stats });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
@@ -846,6 +932,10 @@ app.get('*', (req: Request, res: Response) => {
 
 app.use(errorHandler);
 
+// Initialize Databases
+initDatabase();
+initCreativeMemoryDatabase();
+
 app.listen(PORT, () => {
     console.log(`\n========================================`);
     console.log(`  StrataPilot Server Running`);
@@ -853,5 +943,7 @@ app.listen(PORT, () => {
     console.log(`  URL: http://localhost:${PORT}`);
     console.log(`  API: /api/analyze, /api/strategy`);
     console.log(`  Health: /api/health`);
+    console.log(`  Insight Cache: ENABLED`);
+    console.log(`  Creative Memory: ENABLED`);
     console.log(`========================================\n`);
 });

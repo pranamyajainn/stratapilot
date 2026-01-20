@@ -25,3 +25,11 @@ debug_models.ts
 *.sln
 *.sw?
 .env
+
+# Insight Cache Database
+server/data/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
