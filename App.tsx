@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Dashboard } from './pages/Dashboard';
 import { LandingPage } from './pages/LandingPage';
+import { CrossIndustryInsights } from './pages/CrossIndustryInsights';
 
 export const App: React.FC = () => {
   return (
@@ -15,6 +16,9 @@ export const App: React.FC = () => {
 
         {/* Future-proofing: App specific route */}
         <Route path="/app" element={<Dashboard />} />
+
+        {/* Cross-Industry Insights (NEW) */}
+        <Route path="/insights/cross-industry" element={<CrossIndustryInsights />} />
 
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />

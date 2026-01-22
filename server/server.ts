@@ -22,6 +22,7 @@ import { extractGA4Insights, extractMetaAdsInsights, formatInsightsForLLM, forma
 import { getGroqAnalyzer } from './services/groqAnalyzer.js';
 import { classifyInputCapability } from './services/capabilityClassifier.js';
 import competitiveContextGenerator from './services/competitiveContext.js';
+import { discoverCrossIndustryPatterns } from './services/crossIndustryAnalyzer.js';
 
 // ES Module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -1310,6 +1311,68 @@ app.post('/api/strategy', async (req: Request, res: Response, next: NextFunction
         const result = await generateCampaignStrategy(analysis);
 
         res.json({ success: true, data: result });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// POST /api/cross-industry-insights (NEW - Cross-Category Learning)
+app.post('/api/cross-industry-insights', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { sourceIndustry, targetIndustry, niche, region } = req.body;
+
+        console.log(`[API] /api/cross-industry-insights called: ${sourceIndustry} → ${targetIndustry}`);
+
+        // Validate required parameters
+        if (!sourceIndustry || !targetIndustry) {
+            return res.status(400).json({
+                success: false,
+                error: 'Both sourceIndustry and targetIndustry are required',
+                code: 'MISSING_PARAMETERS'
+            });
+        }
+
+        // Validate industries are in tracked list
+        if (!TRACKED_INDUSTRIES.includes(sourceIndustry as TrackedIndustry)) {
+            return res.status(400).json({
+                success: false,
+                error: `Invalid sourceIndustry. Must be one of: ${TRACKED_INDUSTRIES.join(', ')}`,
+                code: 'INVALID_INDUSTRY'
+            });
+        }
+
+        if (!TRACKED_INDUSTRIES.includes(targetIndustry as TrackedIndustry)) {
+            return res.status(400).json({
+                success: false,
+                error: `Invalid targetIndustry. Must be one of: ${TRACKED_INDUSTRIES.join(', ')}`,
+                code: 'INVALID_INDUSTRY'
+            });
+        }
+
+        // Discover cross-industry patterns
+        const insights = discoverCrossIndustryPatterns(
+            sourceIndustry,
+            targetIndustry,
+            niche || 'general',
+            region || 'global'
+        );
+
+        if (!insights) {
+            return res.status(404).json({
+                success: false,
+                error: `No pattern data available for ${sourceIndustry} or ${targetIndustry}. Pattern data is generated from the Creative Memory database.`,
+                code: 'NO_PATTERN_DATA',
+                hint: 'Pattern data is automatically generated when creatives are ingested into the Creative Memory system.'
+            });
+        }
+
+        console.log(`[API] Found ${insights.totalOpportunities} transferable patterns`);
+
+        res.json({
+            success: true,
+            data: insights
+        });
+
     } catch (error) {
         next(error);
     }
