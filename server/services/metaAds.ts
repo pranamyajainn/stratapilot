@@ -2,11 +2,12 @@ import axios from 'axios';
 
 const META_APP_ID = process.env.META_APP_ID;
 const META_APP_SECRET = process.env.META_APP_SECRET;
-const META_REDIRECT_URI = 'http://localhost:3000/api/auth/meta/callback';
+const META_REDIRECT_URI = process.env.META_REDIRECT_URI || 'http://localhost:3000/api/auth/meta/callback';
 
 export const getMetaAuthUrl = () => {
     const scopes = ['ads_read', 'read_insights']; // Permissions needed
-    return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${META_REDIRECT_URI}&state=meta_auth&scope=${scopes.join(',')}`;
+    const encodedRedirectUri = encodeURIComponent(META_REDIRECT_URI || '');
+    return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodedRedirectUri}&state=meta_auth&scope=${scopes.join(',')}`;
 };
 
 export const getMetaTokens = async (code: string) => {

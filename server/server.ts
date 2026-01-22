@@ -18,6 +18,7 @@ import { initCreativeMemoryDatabase, CompetitiveContextGenerator, getCreativeMem
 import { TrackedIndustry, TRACKED_INDUSTRIES, INDUSTRY_KEYWORDS } from './types/creativeMemoryTypes.js';
 import { getLLMOrchestrator } from './services/llmRouter/index.js';
 import { getGeminiCompiler } from './services/geminiCompiler.js';
+import { extractGA4Insights, extractMetaAdsInsights, formatInsightsForLLM, formatDisconnectedState } from './services/insightExtractors.js';
 import { getGroqAnalyzer } from './services/groqAnalyzer.js';
 import { classifyInputCapability } from './services/capabilityClassifier.js';
 import competitiveContextGenerator from './services/competitiveContext.js';
@@ -1071,10 +1072,12 @@ app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunct
             console.log('[DATA] Fetching GA4 Data...');
             try {
                 const gaData = await fetchGA4Data(googleToken, gaPropertyId);
-                externalDataContext += `\n\nREAL-WORLD PERFORMANCE DATA (Google Analytics 4):\n${JSON.stringify(gaData, null, 2)}`;
+                const gaInsights = extractGA4Insights(gaData);
+                externalDataContext += formatInsightsForLLM(gaInsights);
+                console.log(`[GA4 INSIGHTS] Performance: ${gaInsights.performanceSignal}, Findings: ${gaInsights.keyFindings.length}`);
             } catch (e: any) {
                 console.error("Failed to fetch GA4 data", e.message);
-                externalDataContext += `\n\n(Attempted to fetch GA4 data but failed: ${e.message})`;
+                externalDataContext += `\n\n[GA4 DATA UNAVAILABLE: ${e.message}]`;
             }
         }
 
@@ -1082,11 +1085,18 @@ app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunct
             console.log('[DATA] Fetching Meta Ads Data...');
             try {
                 const metaData = await fetchMetaAdsData(metaToken);
-                externalDataContext += `\n\nREAL-WORLD PERFORMANCE DATA (Meta Ads):\n${JSON.stringify(metaData, null, 2)}`;
+                const metaInsights = extractMetaAdsInsights(metaData);
+                externalDataContext += formatInsightsForLLM(metaInsights);
+                console.log(`[META INSIGHTS] Performance: ${metaInsights.performanceSignal}, Findings: ${metaInsights.keyFindings.length}`);
             } catch (e: any) {
                 console.error("Failed to fetch Meta data", e.message);
-                externalDataContext += `\n\n(Attempted to fetch Meta Ads data but failed: ${e.message})`;
+                externalDataContext += `\n\n[META ADS DATA UNAVAILABLE: ${e.message}]`;
             }
+        }
+
+        // Add disconnected state context if no data sources
+        if (!googleToken && !metaToken) {
+            externalDataContext += formatDisconnectedState();
         }
 
         // 4. Analyze with Context
@@ -1137,10 +1147,12 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
             console.log('[DATA] Fetching GA4 Data...');
             try {
                 const gaData = await fetchGA4Data(googleToken, gaPropertyId);
-                externalDataContext += `\n\nREAL-WORLD PERFORMANCE DATA (Google Analytics 4):\n${JSON.stringify(gaData, null, 2)}`;
+                const gaInsights = extractGA4Insights(gaData);
+                externalDataContext += formatInsightsForLLM(gaInsights);
+                console.log(`[GA4 INSIGHTS] Performance: ${gaInsights.performanceSignal}, Findings: ${gaInsights.keyFindings.length}`);
             } catch (e: any) {
                 console.error("Failed to fetch GA4 data", e.message);
-                externalDataContext += `\n\n(Attempted to fetch GA4 data but failed: ${e.message})`;
+                externalDataContext += `\n\n[GA4 DATA UNAVAILABLE: ${e.message}]`;
             }
         }
 
@@ -1148,11 +1160,18 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
             console.log('[DATA] Fetching Meta Ads Data...');
             try {
                 const metaData = await fetchMetaAdsData(metaToken);
-                externalDataContext += `\n\nREAL-WORLD PERFORMANCE DATA (Meta Ads):\n${JSON.stringify(metaData, null, 2)}`;
+                const metaInsights = extractMetaAdsInsights(metaData);
+                externalDataContext += formatInsightsForLLM(metaInsights);
+                console.log(`[META INSIGHTS] Performance: ${metaInsights.performanceSignal}, Findings: ${metaInsights.keyFindings.length}`);
             } catch (e: any) {
                 console.error("Failed to fetch Meta data", e.message);
-                externalDataContext += `\n\n(Attempted to fetch Meta Ads data but failed: ${e.message})`;
+                externalDataContext += `\n\n[META ADS DATA UNAVAILABLE: ${e.message}]`;
             }
+        }
+
+        // Add disconnected state context if no data sources
+        if (!googleToken && !metaToken) {
+            externalDataContext += formatDisconnectedState();
         }
 
         const fullContext = `${textContext || ''}${externalDataContext}`;
@@ -1235,10 +1254,11 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
     try {
         const tokens = await getGoogleTokens(code);
+        const appUrl = process.env.APP_URL || 'http://localhost:3000';
         // Send tokens back to opener
         const html = `
             <script>
-                window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', token: '${tokens.access_token}' }, 'http://localhost:3000');
+                window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', token: '${tokens.access_token}' }, '${appUrl}');
                 window.close();
             </script>
             <h1>Authentication Successful</h1>
@@ -1263,10 +1283,11 @@ app.get('/api/auth/meta/callback', async (req, res) => {
 
     try {
         const data = await getMetaTokens(code);
+        const appUrl = process.env.APP_URL || 'http://localhost:3000';
         // Send tokens back to opener
         const html = `
             <script>
-                window.opener.postMessage({ type: 'META_AUTH_SUCCESS', token: '${data.access_token}' }, 'http://localhost:3000');
+                window.opener.postMessage({ type: 'META_AUTH_SUCCESS', token: '${data.access_token}' }, '${appUrl}');
                 window.close();
             </script>
             <h1>Authentication Successful</h1>

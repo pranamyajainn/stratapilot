@@ -22,9 +22,11 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, 
         const left = window.screen.width / 2 - width / 2;
         const top = window.screen.height / 2 - height / 2;
 
+        // Use current origin to support both localhost and ngrok
+        const baseUrl = window.location.origin;
         const url = type === 'GA4'
-            ? 'http://localhost:3000/api/auth/google'
-            : 'http://localhost:3000/api/auth/meta';
+            ? `${baseUrl}/api/auth/google`
+            : `${baseUrl}/api/auth/meta`;
 
         const popup = window.open(
             url,
@@ -33,7 +35,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, 
         );
 
         const messageHandler = (event: MessageEvent) => {
-            if (event.origin !== 'http://localhost:3000') return; // Security check
+            if (event.origin !== baseUrl) return; // Security check
 
             if (type === 'GA4' && event.data.type === 'GOOGLE_AUTH_SUCCESS') {
                 window.removeEventListener('message', messageHandler);
