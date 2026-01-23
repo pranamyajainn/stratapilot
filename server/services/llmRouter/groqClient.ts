@@ -247,6 +247,22 @@ export class GroqClient {
                     console.log('[GroqClient] Retrying with next key...');
                     return this.chatCompletion(modelId, systemPrompt, userPrompt, options);
                 }
+
+                return {
+                    success: false,
+                    error: 'LLM service temporarily unavailable due to high demand. Please try again in a few seconds.',
+                    errorCode: 'RATE_LIMITED',
+                    provenance: {
+                        requestId,
+                        modelId,
+                        taskType: 'classification',
+                        promptHash,
+                        outputHash: '',
+                        inputTokens: 0,
+                        outputTokens: 0,
+                        latencyMs,
+                    },
+                };
             }
 
             console.error(`[GroqClient] Error: ${error?.message || error}`);
@@ -257,7 +273,7 @@ export class GroqClient {
                 provenance: {
                     requestId,
                     modelId,
-                    taskType: 'classification',
+                    taskType: 'classification', // Will be updated by caller
                     promptHash,
                     outputHash: '',
                     inputTokens: 0,

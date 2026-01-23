@@ -6,11 +6,22 @@ import { AnalysisView } from '../components/AnalysisView';
 import { StrategyView } from '../components/StrategyView';
 import { ConnectionModal, IntegrationType } from '../components/ConnectionModal';
 import { TechLayerLoader } from '../components/TechLayerLoader';
+import { GA4PropertyPicker } from '../components/analytics/GA4PropertyPicker';
+import { GA4Dashboard } from '../components/analytics/GA4Dashboard';
+import { ga4Service, GA4Connection } from '../src/services/ga4';
 
 export const Dashboard: React.FC = () => {
     const [file, setFile] = useState<File | null>(null);
     const [urlInput, setUrlInput] = useState('');
-    const [textContext, setTextContext] = useState('');
+    const [textContext, setTextContext] = useState(`StrataPilot is launching a new campaign focused on 'Precision at Scale' for our enterprise clients. The primary objective is to demonstrate how our AI-driven insights can reduce wasted ad spend by 40% while simultaneously increasing conversion rates by 25%. We are targeting C-suite executives and Marketing Directors in the Fortune 500 space who are struggling with data fragmentation and attribution challenges. The campaign will leverage a mix of high-impact video testimonials and data-rich whitepapers to build credibility.
+
+Our strategic intent is to position StrataPilot not just as a tool, but as a strategic partner in digital transformation. We want to highlight our unique ability to ingest data from multiple sources—Meta, Google, TikTok—and provide a unified, holistic view of creative performance. By focusing on 'predictive intelligence,' we aim to differentiate ourselves from traditional analytics platforms that only offer retrospective reporting. The messaging should be authoritative yet accessible, emphasizing ease of integration and immediate ROI.
+
+The target audience is currently facing significant pressure to justify marketing budgets in a tightening economic climate. Therefore, our communications must be laser-focused on value unlocking and efficiency. We need to address their pain points around 'black box' algorithms and offer transparency through our explainable AI models. The campaign will run across LinkedIn, industry publications, and targeted programmatic display, with a heavy emphasis on account-based marketing (ABM) for our top 50 prospects.
+
+We are also introducing a new 'Creative Resonance Score' as a key metric for this campaign. This score aggregates emotional response, brand alignment, and technical quality into a single KPI. We believe this will resonate strongly with our audience, who are looking for quantifiable ways to measure creativity. The 'Strategic Context' for this campaign also includes a competitive blitz against legacy incumbents, positioning their solutions as slow and disconnected compared to our real-time, agile approach.
+
+Finally, success will be measured not just by leads generated, but by the 'quality of conversation' initiated with our sales team. We are looking for prospects who are ready to adopt a 'learning loop' mentality, where creative insights continuously inform media buying and vice versa. This campaign is the first step in a broader initiative to redefine the category of 'Creative Intelligence' and establish StrataPilot as the undisputed market leader.`);
     const [selectedPreset, setSelectedPreset] = useState<string>('');
     const [userQuery, setUserQuery] = useState('');
     const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -25,6 +36,39 @@ export const Dashboard: React.FC = () => {
     const [googleToken, setGoogleToken] = useState<string | null>(null);
     const [metaToken, setMetaToken] = useState<string | null>(null);
     const [gaPropertyId, setGaPropertyId] = useState<string | null>(null);
+    const [ga4ConnectionData, setGa4ConnectionData] = useState<GA4Connection | null>(null);
+
+    // Initial load and callback handling
+    useEffect(() => {
+        const initGA = async () => {
+            // Check URL for GA4 success
+            const urlParams = new URLSearchParams(window.location.search);
+            const ga4Success = urlParams.get('ga4');
+
+            if (ga4Success === 'success') {
+                // Clear URL param
+                window.history.replaceState({}, document.title, window.location.pathname);
+                setGa4Connected(true);
+            }
+
+            // Check if we are already connected (backend session or persisted)
+            // Or just check status if we think we might be connected
+            try {
+                const conn = await ga4Service.getConnectionStatus();
+                if (conn) {
+                    setGa4Connected(true);
+                    setGa4ConnectionData(conn);
+                    if (conn.property_id) {
+                        setGaPropertyId(conn.property_id);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to check GA4 status", e);
+            }
+        };
+
+        initGA();
+    }, []);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const recognitionRef = useRef<any>(null);
@@ -372,6 +416,35 @@ export const Dashboard: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* GA4 Integration Section */}
+                        {ga4Connected && (
+                            <div className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                {!gaPropertyId ? (
+                                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200">
+                                        <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 text-center">Complete Setup</h3>
+                                        <GA4PropertyPicker onSelect={(prop) => {
+                                            setGaPropertyId(prop.id);
+                                            // Reload connection status to get full object if needed, 
+                                            // or construct it locally. 
+                                            // Let's reload status to be safe and get timezone/currency.
+                                            ga4Service.getConnectionStatus().then(conn => setGa4ConnectionData(conn));
+                                        }} />
+                                    </div>
+                                ) : (
+                                    ga4ConnectionData && (
+                                        <GA4Dashboard
+                                            connection={ga4ConnectionData}
+                                            onDisconnect={() => {
+                                                setGa4Connected(false);
+                                                setGaPropertyId(null);
+                                                setGa4ConnectionData(null);
+                                            }}
+                                        />
+                                    )
+                                )}
+                            </div>
+                        )}
 
 
                         <div className="mb-8">

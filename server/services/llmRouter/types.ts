@@ -225,6 +225,7 @@ export interface LLMResponse<T = any> {
     success: boolean;
     data?: T;
     error?: string;
+    errorCode?: string;          // Standardized error code (e.g., RATE_LIMITED)
     provenance: Omit<RequestProvenance, 'createdAt'>;
 }
 

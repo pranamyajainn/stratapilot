@@ -184,6 +184,27 @@ const CRICard: React.FC<{
 );
 
 const KeyDeterminants: React.FC<{ driver: DiagnosticItem, detractor: DiagnosticItem }> = ({ driver, detractor }) => {
+  // DEFENSIVE GUARD: Prevent crash when driver/detractor are incomplete
+  const isDriverValid = driver && driver.metric && driver.score !== undefined;
+  const isDetractorValid = detractor && detractor.metric && detractor.score !== undefined;
+
+  if (!isDriverValid || !isDetractorValid) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md">
+          <h4 className="text-[10px] font-black uppercase tracking-[0.3em]">KEY DETERMINANTS</h4>
+        </div>
+        <div className="bg-slate-50 rounded-[28px] p-12 text-center border border-slate-200">
+          <TrendingUp size={48} className="mx-auto text-slate-300 mb-4" />
+          <h3 className="text-lg font-bold text-slate-600 mb-2">Insufficient Diagnostic Data</h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto">
+            Key determinants require complete diagnostic analysis. Upload creative content or provide more context for full analysis.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md">
@@ -808,11 +829,14 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
   const dropCur = 100 - getDiagScore(0);
   const dropPot = Math.max(8.5, dropCur * 0.85);
 
-  const hookUpliftPct = ((hookPot - hookCur) / hookCur) * 100;
-  const clarUpliftPct = ((clarPot - clarCur) / clarCur) * 100;
-  const visUpliftPct = ((visPot - visCur) / visCur) * 100;
-  const vtrUpliftPct = ((vtrPot - vtrCur) / vtrCur) * 100;
-  const ctrUpliftPct = ((ctrPot - ctrCur) / ctrCur) * 100;
+  // Guard against NaN from division by zero
+  const safeDiv = (num: number, denom: number) => (denom === 0 ? 0 : (num / denom));
+
+  const hookUpliftPct = safeDiv((hookPot - hookCur), hookCur) * 100;
+  const clarUpliftPct = safeDiv((clarPot - clarCur), clarCur) * 100;
+  const visUpliftPct = safeDiv((visPot - visCur), visCur) * 100;
+  const vtrUpliftPct = safeDiv((vtrPot - vtrCur), vtrCur) * 100;
+  const ctrUpliftPct = safeDiv((ctrPot - ctrCur), ctrCur) * 100;
 
   const rawRoi = (hookUpliftPct * 0.20) + (clarUpliftPct * 0.20) + (visUpliftPct * 0.15) + (vtrUpliftPct * 0.15) + (ctrUpliftPct * 0.30);
   const minTarget = 10.0;

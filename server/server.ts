@@ -10,7 +10,11 @@ import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 import ytdl from '@distube/ytdl-core';
-import { getGoogleAuthUrl, getGoogleTokens, fetchGA4Data } from './services/googleAnalytics.js';
+// import { getGoogleAuthUrl, getGoogleTokens, fetchGA4Data } from './services/googleAnalytics.js'; // REMOVED: Legacy
+import ga4Router from './routes/ga4Routes.js';
+import { initGA4Database } from './services/ga4/ga4Db.js';
+import metaRoutes from './routes/metaRoutes.js';
+import { initMetaDatabase } from './services/meta/metaDb.js';
 import { getMetaAuthUrl, getMetaTokens, fetchMetaAdsData } from './services/metaAds.js';
 import { initDatabase } from './services/insightDb.js';
 import { checkCache, storeInCache, generateFileHash, generateUrlHash, getInsightStats } from './services/insightCache.js';
@@ -21,7 +25,6 @@ import { getGeminiCompiler } from './services/geminiCompiler.js';
 import { extractGA4Insights, extractMetaAdsInsights, formatInsightsForLLM, formatDisconnectedState } from './services/insightExtractors.js';
 import { getGroqAnalyzer } from './services/groqAnalyzer.js';
 import { classifyInputCapability } from './services/capabilityClassifier.js';
-import competitiveContextGenerator from './services/competitiveContext.js';
 import { discoverCrossIndustryPatterns } from './services/crossIndustryAnalyzer.js';
 
 // ES Module __dirname equivalent
@@ -58,6 +61,50 @@ interface CampaignStrategy {
 const PORT = process.env.PORT || 3000;
 const MAX_FILE_SIZE_MB = 100; // Supports videos up to ~3 minutes
 const SUPPORTED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/mpeg", "video/quicktime"];
+
+// --- ENVIRONMENT VALIDATION ---
+const validateEnvironment = (): void => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Critical - Required for core functionality
+    if (!process.env.GEMINI_API_KEY) {
+        errors.push('GEMINI_API_KEY is required');
+    }
+
+    // Optional - Warn only
+    if (!process.env.GROQ_API_KEY) {
+        warnings.push('GROQ_API_KEY not set - hybrid analysis disabled');
+    }
+
+    // Log status
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🚀 StrataPilot Server Starting');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    const isMock = process.env.USE_MOCK_DATA === 'true';
+    console.log(`Mode: ${isMock ? '🧪 MOCK' : '🔴 PRODUCTION'}`);
+
+    if (isMock) {
+        console.warn(`
+    ========================================
+    ⚠️  RUNNING IN MOCK DATA MODE ⚠️
+    Meta Ads & GA4 will use fake data.
+    Auth will be bypassed.
+    ========================================
+        `);
+    }
+
+    if (errors.length > 0) {
+        console.error('❌ FATAL: Missing required configuration:');
+        errors.forEach(e => console.error(`   - ${e}`));
+        process.exit(1);
+    }
+
+    warnings.forEach(w => console.warn(`⚠️  ${w}`));
+};
+
+// Validate immediately on startup
+validateEnvironment();
 
 // DETERMINISM CONFIG
 const GENERATION_CONFIG = {
@@ -925,22 +972,12 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '150mb' })); // Increased for video uploads up to 100MB
 
-// Error handler middleware
-const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
-    console.error('Error:', err.message);
-
-    if (err instanceof ValidationError) {
-        return res.status(400).json({ success: false, error: err.message, code: err.code });
-    }
-    if (err instanceof AIOutputError) {
-        return res.status(422).json({ success: false, error: err.message, code: err.code });
-    }
-    if (err instanceof AIRuntimeError) {
-        return res.status(500).json({ success: false, error: err.message, code: err.code });
-    }
-
-    return res.status(500).json({ success: false, error: 'Internal server error', code: 'INTERNAL_ERROR' });
-};
+// Request ID Middleware
+app.use((req: any, res: Response, next: NextFunction) => {
+    req.requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    res.setHeader('X-Request-Id', req.requestId);
+    next();
+});
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
@@ -1070,16 +1107,17 @@ app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunct
         // 3. Fetch External Data if tokens present
         let externalDataContext = "";
         if (googleToken && gaPropertyId) {
-            console.log('[DATA] Fetching GA4 Data...');
-            try {
-                const gaData = await fetchGA4Data(googleToken, gaPropertyId);
-                const gaInsights = extractGA4Insights(gaData);
-                externalDataContext += formatInsightsForLLM(gaInsights);
-                console.log(`[GA4 INSIGHTS] Performance: ${gaInsights.performanceSignal}, Findings: ${gaInsights.keyFindings.length}`);
-            } catch (e: any) {
-                console.error("Failed to fetch GA4 data", e.message);
-                externalDataContext += `\n\n[GA4 DATA UNAVAILABLE: ${e.message}]`;
-            }
+            console.log('[DATA] Fetching GA4 Data... (LEGACY - DISABLED)');
+            // try {
+            //     const gaData = await fetchGA4Data(googleToken, gaPropertyId);
+            //     const gaInsights = extractGA4Insights(gaData);
+            //     externalDataContext += formatInsightsForLLM(gaInsights);
+            //     console.log(`[GA4 INSIGHTS] Performance: ${gaInsights.performanceSignal}, Findings: ${gaInsights.keyFindings.length}`);
+            // } catch (e: any) {
+            //     console.error("Failed to fetch GA4 data", e.message);
+            //     externalDataContext += `\n\n[GA4 DATA UNAVAILABLE: ${e.message}]`;
+            // }
+            externalDataContext += `\n\n[GA4 DATA: Uses new dashboard integration]`;
         }
 
         if (metaToken) {
@@ -1145,16 +1183,17 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
         // Fetch External Data
         let externalDataContext = "";
         if (googleToken && gaPropertyId) {
-            console.log('[DATA] Fetching GA4 Data...');
-            try {
-                const gaData = await fetchGA4Data(googleToken, gaPropertyId);
-                const gaInsights = extractGA4Insights(gaData);
-                externalDataContext += formatInsightsForLLM(gaInsights);
-                console.log(`[GA4 INSIGHTS] Performance: ${gaInsights.performanceSignal}, Findings: ${gaInsights.keyFindings.length}`);
-            } catch (e: any) {
-                console.error("Failed to fetch GA4 data", e.message);
-                externalDataContext += `\n\n[GA4 DATA UNAVAILABLE: ${e.message}]`;
-            }
+            console.log('[DATA] Fetching GA4 Data... (LEGACY - DISABLED)');
+            // try {
+            //     const gaData = await fetchGA4Data(googleToken, gaPropertyId);
+            //     const gaInsights = extractGA4Insights(gaData);
+            //     externalDataContext += formatInsightsForLLM(gaInsights);
+            //     console.log(`[GA4 INSIGHTS] Performance: ${gaInsights.performanceSignal}, Findings: ${gaInsights.keyFindings.length}`);
+            // } catch (e: any) {
+            //     console.error("Failed to fetch GA4 data", e.message);
+            //     externalDataContext += `\n\n[GA4 DATA UNAVAILABLE: ${e.message}]`;
+            // }
+            externalDataContext += `\n\n[GA4 DATA: Uses new dashboard integration]`;
         }
 
         if (metaToken) {
@@ -1243,6 +1282,7 @@ app.get('/api/insight-stats', (req, res) => {
 
 // --- AUTH ROUTES ---
 
+/* REMOVED: Legacy Google Auth Routes - migrated to /api/ga4/auth
 // Google Auth
 app.get('/api/auth/google', (req, res) => {
     const url = getGoogleAuthUrl();
@@ -1271,35 +1311,28 @@ app.get('/api/auth/google/callback', async (req, res) => {
         res.status(500).send('Authentication failed');
     }
 });
+*/
 
-// Meta Auth
-app.get('/api/auth/meta', (req, res) => {
-    const url = getMetaAuthUrl();
-    res.redirect(url);
-});
 
-app.get('/api/auth/meta/callback', async (req, res) => {
-    const code = req.query.code as string;
-    if (!code) return res.status(400).send('No code provided');
 
-    try {
-        const data = await getMetaTokens(code);
-        const appUrl = process.env.APP_URL || 'http://localhost:3000';
-        // Send tokens back to opener
-        const html = `
-            <script>
-                window.opener.postMessage({ type: 'META_AUTH_SUCCESS', token: '${data.access_token}' }, '${appUrl}');
-                window.close();
-            </script>
-            <h1>Authentication Successful</h1>
-            <p>You can close this window now.</p>
-        `;
-        res.send(html);
-    } catch (error) {
-        console.error('Meta Auth Failed:', error);
-        res.status(500).send('Authentication failed');
-    }
-});
+import { MetaScheduler } from './services/meta/scheduler.js';
+
+// Initialize Databases
+initDatabase();
+initCreativeMemoryDatabase();
+initGA4Database();
+initMetaDatabase(); // Initialize Meta DB
+
+// Start Scheduler
+const metaScheduler = new MetaScheduler();
+metaScheduler.start();
+
+// Mount Routes
+app.use('/api', metaRoutes);
+
+// Meta Auth (Legacy - Removing in favor of metaRoutes, but keeping commented if needed for reference, or just remove)
+// app.get('/api/auth/meta', ...); -> REMOVED because it's in metaRoutes now.
+
 
 // POST /api/strategy
 app.post('/api/strategy', async (req: Request, res: Response, next: NextFunction) => {
@@ -1378,6 +1411,9 @@ app.post('/api/cross-industry-insights', async (req: Request, res: Response, nex
     }
 });
 
+// GA4 Routes
+app.use('/api/ga4', ga4Router);
+
 // Serve static files from the dist directory
 const distPath = path.join(__dirname, '..', 'dist');
 app.use(express.static(distPath));
@@ -1387,11 +1423,39 @@ app.get('*', (req: Request, res: Response) => {
     res.sendFile(path.join(distPath, 'index.html'));
 });
 
-app.use(errorHandler);
+// --- SERVER STARTUP ---
+const errorHandler = (err: any, req: any, res: Response, next: NextFunction) => {
+    console.error(`[ERROR] ${err.name}: ${err.message}`);
+    if (err.stack) console.error(err.stack);
 
-// Initialize Databases
-initDatabase();
-initCreativeMemoryDatabase();
+    // Default error status
+    let status = 500;
+    let message = "Internal Server Error";
+    let code = "INTERNAL_ERROR";
+
+    if (err instanceof ValidationError) {
+        status = 400;
+        message = err.message;
+        code = err.code;
+    } else if (err instanceof AIOutputError) {
+        status = 502; // Bad Gateway (upstream AI failed)
+        message = "AI service returned invalid response. Please try again.";
+        code = err.code;
+    } else if (err instanceof AIRuntimeError) {
+        status = 503; // Service Unavailable
+        message = err.message;
+        code = err.code;
+    }
+
+    res.status(status).json({
+        success: false,
+        error: message,
+        code: code,
+        requestId: req.requestId || 'unknown'
+    });
+};
+
+app.use(errorHandler);
 
 app.listen(PORT, () => {
     console.log(`\n========================================`);
