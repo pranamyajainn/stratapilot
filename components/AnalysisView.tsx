@@ -765,6 +765,113 @@ const ValueUnlockingCard: React.FC<{
   );
 };
 
+export const PdfDiagnosticPage: React.FC<{ item: DiagnosticItem, index: number }> = ({ item, index }) => {
+  const s = normalizeScore(item.score);
+  const tier = getRubricTier(s);
+  const color = getTierColorHex(tier);
+
+  return (
+    <div id={`pdf-diagnostic-${index}`} className="bg-white p-16 w-full max-w-4xl mx-auto mb-20 border border-slate-100 shadow-sm relative overflow-hidden" style={{ minHeight: '1100px' }}>
+      {/* Background accent */}
+      <div className="absolute top-0 left-0 w-2 h-full" style={{ backgroundColor: color }}></div>
+      <div className="absolute top-0 left-0 w-full h-2" style={{ backgroundColor: color }}></div>
+
+      {/* Content Container */}
+      <div className="space-y-10 relative z-10">
+
+        {/* Metric Header */}
+        <div className="border-b border-slate-100 pb-8 flex justify-between items-end">
+          <div className="space-y-3">
+            <div className="text-slate-400 text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs text-slate-500">
+                {index + 1}
+              </span>
+              Diagnostic Metric
+            </div>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-tight uppercase">
+              {item.metric}
+            </h1>
+          </div>
+          <div className="text-right">
+            <div className="text-5xl font-black mb-1" style={{ color: color }}>{s}<span className="text-2xl text-slate-300">/100</span></div>
+            <div className="text-sm font-bold uppercase tracking-widest px-3 py-1 rounded-full inline-block" style={{ color: color, backgroundColor: `${color}10` }}>
+              {tier} Performance
+            </div>
+          </div>
+        </div>
+
+        {/* Deep Analysis */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+            <Microscope size={16} /> Analysis & Interpretation
+          </h3>
+          <p className="text-lg text-slate-700 leading-relaxed font-medium">
+            {item.commentary}
+          </p>
+        </div>
+
+        {/* Sub-Insights / Observations */}
+        <div className="bg-slate-50 rounded-2xl p-8 border border-slate-100">
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
+            <Eye size={16} /> Key Observations
+          </h3>
+          <div className="grid grid-cols-1 gap-4">
+            {item.subInsights.map((insight, idx) => (
+              <div key={idx} className="flex gap-4 items-start">
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2.5 flex-shrink-0"></div>
+                <p className="text-base text-slate-600 leading-relaxed">{insight}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Why / Fix / Impact Grid */}
+        <div className="grid grid-cols-1 gap-8 pt-4">
+          {/* Why It Matters */}
+          <div className="flex gap-5">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl h-fit">
+              <Info size={24} />
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Why It Matters</h4>
+              <p className="text-base text-slate-600 leading-relaxed">
+                {item.whyItMatters}
+              </p>
+            </div>
+          </div>
+
+          {/* Recommendation */}
+          <div className="flex gap-5">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl h-fit">
+              <CheckCircle size={24} />
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-sm font-black text-emerald-700 uppercase tracking-widest">Strategic Recommendation</h4>
+              <p className="text-base text-slate-800 font-bold leading-relaxed">
+                {item.recommendation}
+              </p>
+            </div>
+          </div>
+
+          {/* Business Impact */}
+          <div className="flex gap-5">
+            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl h-fit">
+              <TrendingUp size={24} />
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-sm font-black text-indigo-700 uppercase tracking-widest">Projected Business Impact</h4>
+              <p className="text-base text-slate-600 leading-relaxed italic">
+                {item.impact}
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
 export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStrategy, isStrategizing, activeMode }) => {
   const [localData, setLocalData] = useState(data);
 
@@ -848,59 +955,68 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
   const [isPdfMode, setIsPdfMode] = useState(false);
   const topRef = useRef<HTMLDivElement>(null);
 
+  /* PDF CAPTURE LOGIC (Multi-Page, Deterministic) */
   const handleDownloadPdf = async () => {
-    // Capture the element reference before any state changes
-    const element = topRef.current;
-    if (!element) {
-      console.error("PDF export failed: No content element found");
-      alert("Failed to generate PDF. Please try again.");
-      return;
-    }
-
+    // 1. Enter PDF Mode to render specialized layout
     setIsPdfMode(true);
 
-    // Wait for React to re-render all sections in PDF mode
-    // Using requestAnimationFrame + timeout for more reliable DOM update detection
-    await new Promise(resolve => {
-      requestAnimationFrame(() => {
-        setTimeout(resolve, 300);
-      });
-    });
+    // 2. Wait for DOM to stabilize
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     try {
-      // Re-acquire the reference after the state update
-      const targetElement = topRef.current || element;
-      const canvas = await html2canvas(targetElement, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      });
-
-      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'p',
         unit: 'mm',
         format: 'a4'
       });
 
-      const imgWidth = 210;
+      const pageWidth = 210;
       const pageHeight = 297;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
+      const margin = 0; // Capture elements full bleed
 
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+      // --- PAGE 1: SCORECARD ---
+      const scorecardEl = document.getElementById('pdf-scorecard');
+      if (scorecardEl) {
+        const canvas = await html2canvas(scorecardEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/png');
+        const imgHeight = (canvas.height * pageWidth) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
+        addHeaderFooter(pdf, 1, "Performance Scorecard");
       }
 
-      pdf.save(`StrataPilot-Analysis-${new Date().toISOString().split('T')[0]}.pdf`);
+      // --- PAGE 2: EXECUTIVE SUMMARY ---
+      // Need to ensure Exec Summary is rendered.
+      // For strict One Diag/Page, we might skip Exec Summary grid or put it on Page 2.
+      // Let's Put ROI first as Page 2 per request "Scorecard -> ROI -> Diags"
+
+      // --- PAGE 2: ROI & VALUE ---
+      const roiEl = document.getElementById('pdf-roi');
+      if (roiEl) {
+        pdf.addPage();
+        const canvas = await html2canvas(roiEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/png');
+        const imgHeight = (canvas.height * pageWidth) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
+        addHeaderFooter(pdf, 2, "ROI & Value Projection");
+      }
+
+      // --- PAGE 3-14: DIAGNOSTICS ---
+      for (let i = 0; i < diagnostics.length; i++) {
+        const diagEl = document.getElementById(`pdf-diagnostic-${i}`);
+        if (diagEl) {
+          pdf.addPage();
+          const canvas = await html2canvas(diagEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+          const imgData = canvas.toDataURL('image/png');
+          const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+          // Fit to page (contain) if too tall, but intended to be A4 exact
+          pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
+          addHeaderFooter(pdf, 3 + i, `Metric ${i + 1} of ${diagnostics.length}`);
+        }
+      }
+
+      pdf.save(`StrataPilot-Report-${new Date().toISOString().split('T')[0]}.pdf`);
+
     } catch (err) {
       console.error("PDF Generation failed", err);
       alert("Failed to generate PDF. Please try again.");
@@ -909,12 +1025,27 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
     }
   };
 
+  const addHeaderFooter = (doc: jsPDF, pageNum: number, sectionTitle: string) => {
+    const width = doc.internal.pageSize.getWidth();
+    const height = doc.internal.pageSize.getHeight();
+
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+
+    // Header
+    doc.text("StrataPilot Diagnostic Report", 10, 8);
+    doc.text(sectionTitle, width - 10, 8, { align: 'right' });
+
+    // Footer
+    doc.text(`Generated ${new Date().toISOString()}`, 10, height - 8);
+    doc.text(`Page ${pageNum}`, width - 10, height - 8, { align: 'right' });
+  };
+
   const tabs = [
     { id: "holistic-scorecard", label: "Scorecard" },
     { id: "key-determinants", label: "Key Determinants" },
     { id: "executive-summary", label: "Executive Summary" },
     { id: "diagnostic-summary", label: "Diagnostics" },
-    { id: "audience-insights", label: "Audience Analysis" },
     { id: "brand-strategy", label: "Brand Strategy" },
     { id: "brand-archetype", label: "Brand Archetype" },
     { id: "roi-uplift", label: "ROI Uplift" }
@@ -1044,14 +1175,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
           </div>
         )}
 
-        {/* TAB 5: AUDIENCE ANALYSIS */}
-        {(activeTab === "audience-insights" || isPdfMode) && (
-          <TargetAudienceAnalysis
-            demographics={localData.demographics}
-            psychographics={localData.psychographics}
-            behavioral={localData.behavioral}
-          />
-        )}
+
 
         {/* TAB 6: BRAND STRATEGY */}
         {(activeTab === "brand-strategy" || isPdfMode) && (
@@ -1121,6 +1245,57 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
                 <Rocket size={16} /> {isStrategizing ? 'GENERATING...' : data.campaignStrategy ? 'STRATEGY ACTIVE' : 'GENERATE STRATEGY PLAN'}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* PDF GENERATION CONTAINER (Visible only in PDF Mode, used for capture) */}
+        {isPdfMode && (
+          <div className="absolute top-0 left-0 w-full z-0 pointer-events-none opacity-100 bg-white">
+            {/* PAGE 1: SCORECARD */}
+            <div id="pdf-scorecard" className="p-8 bg-white min-h-[1100px] flex flex-col justify-center">
+              <div className="bg-slate-900 text-white p-4 rounded-full text-center shadow-md mb-8 w-full">
+                <h4 className="text-sm font-black uppercase tracking-[0.3em]">HOLISTIC PERFORMANCE SCORECARD</h4>
+              </div>
+              <div className="flex-grow flex items-center justify-center">
+                <ResponsiveContainer width="100%" height={600}>
+                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
+                    <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} />
+                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                    <RechartsRadar name="Benchmark Score" dataKey="B" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" fill="transparent" />
+                    <RechartsRadar name="Your Score" dataKey="A" stroke="#4f46e5" strokeWidth={3} fill="#4f46e5" fillOpacity={0.15} />
+                    <Legend />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="text-center mt-8">
+                <h1 className="text-6xl font-black text-slate-900">{avgScore}</h1>
+                <div className="text-xl font-bold text-indigo-600 uppercase tracking-widest">{avgTier}</div>
+              </div>
+            </div>
+
+            {/* PAGE 2: ROI */}
+            <div id="pdf-roi" className="p-8 bg-white min-h-[1100px] flex flex-col justify-center">
+              <div className="bg-slate-900 text-white p-4 rounded-full text-center shadow-md mb-12 w-full">
+                <h4 className="text-sm font-black uppercase tracking-[0.3em]">ROI & VALUE PROJECTION</h4>
+              </div>
+              <div className="grid grid-cols-2 gap-8 mb-12">
+                <ValueUnlockingCard title="Hook Rate" icon={Eye} current={hookCur} potential={hookPot} unit="%" definition="Attention capture" science="Salience" />
+                <ValueUnlockingCard title="Completion" icon={PlayCircle} current={vtrCur} potential={vtrPot} unit="%" definition="Retention" science="Narrative" />
+                <ValueUnlockingCard title="CTR" icon={MousePointerClick} current={ctrCur} potential={ctrPot} unit="%" definition="Conversion" science="Action Bias" />
+                <ValueUnlockingCard title="Bounce Rate" icon={ZapOff} current={dropCur} potential={dropPot} unit="%" isNegative definition="Rejection" science="Cognitive Load" />
+              </div>
+              <div className="bg-slate-900 text-white p-12 rounded-3xl text-center">
+                <h3 className="text-lg font-black uppercase tracking-widest text-indigo-400 mb-2">Projected ROAS Impact</h3>
+                <div className="text-8xl font-black text-white mb-6">{constrainedRoi.toFixed(1)}x</div>
+                <p className="text-slate-400 max-w-lg mx-auto">Based on implementation of all {diagnostics.length} strategic recommendations.</p>
+              </div>
+            </div>
+
+            {/* PAGE 3+: DIAGNOSTICS */}
+            {diagnostics.map((item, idx) => (
+              <PdfDiagnosticPage key={idx} item={item} index={idx} />
+            ))}
           </div>
         )}
 

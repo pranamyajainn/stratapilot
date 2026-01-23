@@ -243,6 +243,7 @@ export class GeminiVisualCompiler {
                 humanPresence: false,
                 logoDetected: false,
                 brandColors: [],
+                creativeFormat: 'unknown',
             };
         }
     }
@@ -263,7 +264,7 @@ export class GeminiVisualCompiler {
 ### Motion & Pacing
 - Pacing: ${features.pacing || 'N/A'}
 - Transitions: ${features.transitions?.join(', ') || 'none'}
-- Duration: ${features.duration ? features.duration + 's' : 'N/A'}
+- Duration: ${features.durationSeconds ? features.durationSeconds + 's' : 'N/A'}
 
 ### Text & Audio
 - Text Overlays: ${features.textOverlays.join(' | ') || 'none'}

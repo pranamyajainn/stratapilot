@@ -261,7 +261,7 @@ export interface VisualFeatures {
     // Motion/Video
     pacing: 'slow' | 'medium' | 'fast' | 'variable';
     transitions: string[];        // Transition types used
-    duration?: number;            // Duration in seconds
+    durationSeconds?: number;     // Duration in seconds
 
     // Text/Audio
     textOverlays: string[];       // On-screen text
@@ -279,4 +279,8 @@ export interface VisualFeatures {
     brandColors: string[];
     ctaText?: string;
     ctaPlacement?: string;
+
+    // Format
+    creativeFormat: 'static_image' | 'video_short' | 'video_long' | 'carousel' | 'unknown';
+    aspectRatio?: string;
 }

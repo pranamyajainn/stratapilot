@@ -14,45 +14,104 @@ import { selectPromptTemplate } from './conditionalPrompts.js';
 // =====================================================
 
 const ANALYSIS_SYSTEM_PROMPT = `You are StrataPilot, an expert AI Creative Analyst.
-Your role is to analyze creative assets based on extracted visual features and provide strategic diagnostics.
+Your task is to analyze creative assets using only the provided extracted visual features (and audio, if available) and produce strategic diagnostics.
 
-**EPISTEMIC GUARDRAILS:**
-1. Base analysis on the provided visual features - they are ground truth
-2. All scores (0-100) are qualitative assessments of creative execution
-3. Use "suggests", "indicates", "appears designed to" - avoid certainties
-4. If data is insufficient, explicitly state limitations
+## CORE MANDATE: VERIFIABLE, EVIDENCE-BOUND DIAGNOSTICS
+You must eliminate vague, generic, or unjustified diagnostics. 
+Every conclusion must be explicitly bound to observable evidence.
+If you cannot prove it, you must lower the confidence and score.
 
-**LANGUAGE CONTROL:**
-- REPLACE "will convert" WITH "likely to resonate"
-- REPLACE "drives sales" WITH "aligns with conversion best practices"
-- USE qualitative language, not predictive
+---
 
-**REQUIRED DIAGNOSTICS (provide exactly 12):**
-1. Immediate Attention (Hook)
-2. Creative Differentiation
-3. Visual Hierarchy
-4. Audio Impact / Visual Synergy
-5. Call to Action (CTA) Strength
-6. Message Relevance
-7. Clarity of Proposition
-8. Narrative Pacing
-9. Emotional Resonance
-10. Brand Linkage & Visibility
-11. View-Through Potential
-12. Overall Persuasion
+## 5 NON-NEGOTIABLE RULES
 
-For each diagnostic, provide:
-- metric: Name
-- score: 0-100
-- benchmark: 65 (industry average)
-- rubricTier: "Excellent"/"Good"/"Needs Work"/"Poor"
-- subInsights: 5 specific observations
-- commentary: Brief analysis
-- whyItMatters: Business relevance
-- recommendation: Specific improvement
-- impact: Expected outcome
+### 1. EVIDENCE BINDING (MANDATORY)
+For EACH diagnostic metric, you MUST explicitly reference at least **two concrete observable inputs**.
+- Valid Evidence: "Logo at 0:02", "Red CTA button", "Fast pacing (0.5s avg shot)", "Upbeat major-key audio".
+- Invalid Evidence: "Good visuals", "Strong branding", "Engaging content".
+- If specific evidence is missing: LOWER the score, mark confidence as LOW, and state "Insufficient evidence".
 
-Output valid JSON matching the AnalysisResult schema.`;
+### 2. DIAGNOSTIC STRUCTURE
+Each diagnostic's \`commentary\` MUST follow this logical flow:
+- **Observation**: What was explicitly detected?
+- **Interpretation**: What does that suggestion?
+- **Justification**: Why is the score not higher/lower?
+- **Confidence**: MUST start with "Confidence: [HIGH/MEDIUM/LOW]. "
+
+### 3. HONEST INSUFFICIENCY (No Hallucinations)
+If required inputs (audio, text, clear brand cues) are missing:
+- Do NOT infer or generalize.
+- Do NOT hallucinate features.
+- Explicitly state: "Insufficient evidence to assess [Metric]."
+- Assign a conservative score (<= 65).
+- Mark confidence as LOW.
+
+### 4. SCORE & MATH SAFETY
+- Scores MUST be numeric integers (0-100).
+- NEVER return NaN, null, or undefined.
+- If data is completely absent, return a default safe score (e.g., 50-60) and flag as LOW confidence.
+
+### 5. GENERICITY TEST
+Before finalizing a diagnostic, ask: "Could this apply to a different ad?"
+- If YES: It is too generic. REJECT IT. Rewrite with specific references (timestamps, colors, text match).
+
+---
+
+## INPUTS
+- visualFeatures: Ground truth data.
+- User Context: Brand, Category, Objective (if provided).
+- Competitive Context: (if provided).
+
+## OUTPUT FORMAT
+Return valid JSON matching the schema below.
+
+{
+  "analyst": "StrataPilot",
+  "metadata": {
+    "inputSummary": "Brief summary",
+    "limitations": "Explicitly note missing inputs",
+    "timestamp": "ISO 8601"
+  },
+  "diagnostics": [
+    {
+      "metric": "Diagnostic Name",
+      "score": 0-100,
+      "benchmark": 65,
+      "rubricTier": "Excellent" | "Good" | "Needs Work" | "Poor",
+      "subInsights": [
+        "Evidence 1: [Concrete Observation]",
+        "Evidence 2: [Concrete Observation]",
+        "Interpretation: [Specific Meaning]",
+        "Limitation: [If applicable]",
+        "Strategy: [Actionable Insight]"
+      ],
+      "commentary": "Confidence: [HIGH/MEDIUM/LOW]. [Observation] -> [Interpretation] -> [Justification].",
+      "whyItMatters": "Business relevance",
+      "recommendation": "Specific, actionable improvement",
+      "impact": "Qualitative outcome (e.g. 'likely to improve recall', 'supports clarity')"
+    }
+  ]
+}
+
+## LANGUAGE CONTROLS
+- **BANNED**: "guaranteed", "drive sales", "revenue", "ROAS", "viral".
+- **REQUIRED**: "suggests", "indicates", "likely to support", "may improve".
+- **Tone**: Professional, objective, cautious, analytic.
+
+## REQUIRED DIAGNOSTICS (Must interpret strict visual evidence)
+1. Immediate Attention (Hook) -> Evidence: first 3 seconds, visual contrast, motion.
+2. Creative Differentiation -> Evidence: unique stylistic elements, color usage, format.
+3. Visual Hierarchy -> Evidence: layout, size of elements, reading path.
+4. Audio Impact / Visual Synergy -> Evidence: mood match, sync points. (If no audio: Score LOW, Confidence LOW).
+5. Call to Action (CTA) Strength -> Evidence: explicit text, button visibility, instructions.
+6. Message Relevance -> Evidence: copy match to user context/category.
+7. Clarity of Proposition -> Evidence: legibility, duration of text, simplicity.
+8. Narrative Pacing -> Evidence: shot duration, transitions, energy.
+9. Emotional Resonance -> Evidence: facial expressions, lighting, color psychology.
+10. Brand Linkage & Visibility -> Evidence: logo time on screen, size, distinctive assets.
+11. View-Through Potential -> Evidence: hook + pacing + retention cues.
+12. Overall Persuasion -> Evidence: combination of clarity, benefit, and trust cues.
+`;
 
 const AUDIENCE_SYSTEM_PROMPT = `You are a consumer insights specialist.
 Based on the visual features of a creative, infer the likely target audience.
@@ -192,19 +251,30 @@ export class GroqStrategicAnalyzer {
         textContext: string,
         analysisLabel: string,
         competitiveContext?: string,
-        capability?: CapabilityLevel  // NEW: Capability level from classifier
+        capability?: CapabilityLevel,
+        secondaryVisualFeatures?: VisualFeatures // NEW
     ): Promise<StrategicAnalysisResult> {
         console.log('[GroqAnalyzer] Starting strategic analysis...');
         console.log('[GroqAnalyzer] Capability level:', capability || 'HIGH (default)');
 
-        // Build context from visual features
-        const visualContext = this.formatVisualContext(visualFeatures);
+        // Build context logic
+        let visualContext: string;
+        let effectiveTextContext: string;
+
+        if (secondaryVisualFeatures) {
+            console.log('[GroqAnalyzer] Tri-Input Mode: Synthesizing Context...');
+            visualContext = this.formatTriInputContext(visualFeatures, secondaryVisualFeatures, textContext);
+            effectiveTextContext = ""; // Context is already synthesized into the visual block
+        } else {
+            visualContext = this.formatVisualContext(visualFeatures);
+            effectiveTextContext = textContext;
+        }
 
         // Run analysis tasks (can be parallelized in future)
         const [diagnostics, audience, brand, roi] = await Promise.all([
-            this.generateDiagnostics(visualContext, textContext, analysisLabel, competitiveContext),
-            this.generateAudienceProfile(visualContext, textContext),
-            this.generateBrandAnalysis(visualContext, textContext, visualFeatures, capability || 'HIGH'),  // Pass capability
+            this.generateDiagnostics(visualContext, effectiveTextContext, analysisLabel, competitiveContext),
+            this.generateAudienceProfile(visualContext, effectiveTextContext),
+            this.generateBrandAnalysis(visualContext, effectiveTextContext, visualFeatures, capability || 'HIGH'),  // Pass capability
             this.generateROIMetrics(visualContext, visualFeatures),
         ]);
 
@@ -242,30 +312,56 @@ export class GroqStrategicAnalyzer {
     private formatVisualContext(features: VisualFeatures): string {
         return `
 ## EXTRACTED VISUAL FEATURES
+${this.formatFeaturesBlock(features)}
+`.trim();
+    }
 
+    /**
+     * Helper to format a single feature block
+     */
+    private formatFeaturesBlock(features: VisualFeatures): string {
+        return `
 ### Core Elements
 - Objects: ${features.objects?.join(', ') || 'none'}
 - Scenes: ${features.scenes?.join(', ') || 'none'}
 - Colors: ${features.colors?.join(', ') || 'none'}
-- Composition: ${features.composition || 'unknown'}
 
 ### Text & Audio
 - Text Overlays: ${features.textOverlays?.join(' | ') || 'none'}
 - Transcript: ${features.transcript || 'none'}
 - Audio Mood: ${features.audioMood || 'unknown'}
 
-### People & Emotion
-- Human Presence: ${features.humanPresence ? 'Yes' : 'No'}
-- Expressions: ${features.facialExpressions?.join(', ') || 'N/A'}
-- Emotional Cues: ${features.emotionalTone?.join(', ') || 'none'}
-
-### Brand
-- Logo: ${features.logoDetected ? `Yes (${features.logoPosition || 'position unknown'})` : 'No'}
-- CTA: ${features.ctaText || 'none'} ${features.ctaPlacement ? `(${features.ctaPlacement})` : ''}
-
-### Format
+### Brand & Format
+- Logo: ${features.logoDetected ? 'Yes' : 'No'}
 - Pacing: ${features.pacing || 'N/A'}
-- Transitions: ${features.transitions?.join(', ') || 'none'}
+- Duration: ${features.durationSeconds ? features.durationSeconds + 's' : 'N/A'}
+`.trim();
+    }
+
+    /**
+     * NEW: Tri-Input Context Synthesis
+     */
+    private formatTriInputContext(primary: VisualFeatures, secondary: VisualFeatures, textContext: string): string {
+        return `
+## PRIMARY MEDIA (GROUND TRUTH)
+${this.formatFeaturesBlock(primary)}
+
+## SECONDARY MEDIA (REFERENCE ONLY)
+${this.formatFeaturesBlock(secondary)}
+
+## SYNTHESIZED CONTEXT (GUIDANCE ONLY)
+User Context:
+${textContext || 'None provided'}
+
+Inferred Context from Primary Media:
+- Setting: ${primary.scenes?.join(', ') || 'Unknown'}
+- Mood: ${primary.audioMood || 'Unknown'}
+
+Inferred Context from Secondary Media:
+- Setting: ${secondary.scenes?.join(', ') || 'Unknown'}
+- Mood: ${secondary.audioMood || 'Unknown'}
+
+> CONFIGURATION NOTE: Diagnostics and scores must be justified exclusively using PRIMARY MEDIA. Context may guide interpretation but must not be used as evidence.
 `.trim();
     }
 

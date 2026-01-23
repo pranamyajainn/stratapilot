@@ -651,84 +651,111 @@ const analyzeCollateralHybrid = async (
     analysisLabel: string,
     fileData?: string | null,
     mimeType?: string | null,
-    fileUri?: string | null
+    fileUri?: string | null,
+    secondaryVideoUrl?: string | null // NEW: Secondary input
 ): Promise<AnalysisResult> => {
     console.log(`[RUNTIME-VERIFY] ===== HYBRID ANALYSIS PIPELINE START =====`);
     validateInputs(textContext, analysisLabel, fileData, mimeType, fileUri);
 
-    const hasMedia = !!(fileData || fileUri);
-    console.log(`[RUNTIME-VERIFY] Has Media: ${hasMedia}`);
+    const hasPrimaryMedia = !!(fileData || fileUri);
+    console.log(`[RUNTIME-VERIFY] Has Primary Media: ${hasPrimaryMedia}`);
 
     // If no media, skip visual extraction
-    if (!hasMedia) {
+    if (!hasPrimaryMedia) {
         console.log('[HYBRID] No media provided, using text-only analysis via Groq');
-        console.log(`[RUNTIME-VERIFY] Calling: analyzeTextOnly`);
         return analyzeTextOnly(textContext, analysisLabel);
     }
 
+    /*
+     * TRI-INPUT CONTEXT SYNTHESIS LOGIC
+     * If both Primary (Upload) and Secondary (URL) are present:
+     * 1. Extract Primary Evidence (Ground Truth)
+     * 2. Extract Secondary Evidence (Reference)
+     * 3. Synthesize Context
+     */
+    const isTriInputMode = !!(hasPrimaryMedia && secondaryVideoUrl);
+    console.log(`[HYBRID] Tri-Input Mode: ${isTriInputMode}`);
+
     console.log('[HYBRID] Starting hybrid analysis pipeline...');
 
-    // Step 1: Gemini extracts visual features (COMPILER mode)
-    console.log('[HYBRID] Step 1: Gemini visual extraction...');
-    console.log(`[RUNTIME-VERIFY] Invoking: GeminiCompiler.extractFeatures`);
+    // Step 1: Gemini extracts PRIMARY visual features
+    console.log('[HYBRID] Step 1: Extracting PRIMARY evidence (Upload)...');
     const geminiCompiler = getGeminiCompiler();
-    const visualFeatures = await geminiCompiler.extractFeatures(fileData, mimeType, fileUri);
-    console.log('[HYBRID] Visual features extracted');
-    console.log(`[RUNTIME-VERIFY] Model Used: Gemini (visual extraction)`);
+    const primaryVisualFeatures = await geminiCompiler.extractFeatures(fileData, mimeType, fileUri);
+    console.log('[HYBRID] Primary visual features extracted');
 
-    // Step 2: Classify input capability
-    console.log('[HYBRID] Step 2: Classify input capability...');
+    // Step 2: Gemini extracts SECONDARY visual features (if generic mode active)
+    let secondaryVisualFeatures: any = null;
+    let tempSecondaryPath: string | null = null;
+
+    if (isTriInputMode && secondaryVideoUrl) {
+        console.log('[HYBRID] Step 2: Extracting SECONDARY evidence (URL)...');
+        try {
+            // Download and Upload Secondary Asset
+            const secondaryTempName = `${uuidv4()}.mp4`; // Assume mp4/video for secondary URL usually
+            tempSecondaryPath = path.join(os.tmpdir(), secondaryTempName);
+
+            console.log(`[HYBRID] Downloading secondary URL: ${secondaryVideoUrl}`);
+            const secMimeType = await downloadFile(secondaryVideoUrl, tempSecondaryPath);
+
+            console.log(`[HYBRID] Uploading secondary asset to Gemini...`);
+            const secFileUri = await uploadToGemini(tempSecondaryPath, secMimeType);
+
+            console.log(`[HYBRID] Extracting secondary features...`);
+            secondaryVisualFeatures = await geminiCompiler.extractFeatures(null, secMimeType, secFileUri);
+            console.log('[HYBRID] Secondary visual features extracted');
+        } catch (error: any) {
+            console.warn(`[HYBRID] Failed to process secondary URL: ${error.message}. Proceeding with Primary only.`);
+        } finally {
+            if (tempSecondaryPath && fs.existsSync(tempSecondaryPath)) {
+                fs.unlinkSync(tempSecondaryPath);
+            }
+        }
+    }
+
+    // Step 3: Classify input capability (based on Primary)
+    console.log('[HYBRID] Step 3: Classify input capability...');
     const classification = classifyInputCapability(
         textContext,
-        true,  // hasMedia
-        visualFeatures
+        true,
+        primaryVisualFeatures
     );
     console.log(`[INPUT-CLASSIFY] Capability: ${classification.level}`);
-    console.log(`[INPUT-CLASSIFY] Reasoning: ${classification.reasoning}`);
 
-    // Step 3: Get competitive context (if applicable)
+    // Step 4: Get competitive context
     let competitiveContextBlock = "";
     try {
         const inferredIndustry = inferIndustryFromContext(textContext);
         if (inferredIndustry) {
-            console.log(`[HYBRID] Detected industry: ${inferredIndustry}`);
             const competitiveContext = await competitiveContextGenerator.generateContext(inferredIndustry);
             competitiveContextBlock = competitiveContextGenerator.formatForGemini(competitiveContext);
         }
     } catch (error: any) {
-        console.warn('[HYBRID] Competitive context skipped:', error.message);
+        console.warn('[HYBRID] Competitive context skipeed:', error.message);
     }
 
-    // Step 4: Groq generates strategic analysis (capability-aware)
-    console.log('[HYBRID] Step 3: Groq strategic analysis...');
-    console.log(`[RUNTIME-VERIFY] Invoking: GroqAnalyzer.analyze`);
+    // Step 5: Groq generates strategic analysis
+    console.log('[HYBRID] Step 5: Groq strategic analysis...');
     const groqAnalyzer = getGroqAnalyzer();
+
+    // Pass secondary features if available
     const strategicAnalysis = await groqAnalyzer.analyze(
-        visualFeatures,
+        primaryVisualFeatures,
         textContext,
         analysisLabel,
         competitiveContextBlock,
-        classification.level  // NEW: Pass capability level
+        classification.level,
+        secondaryVisualFeatures // NEW arg
     );
+
     console.log('[HYBRID] Strategic analysis complete');
-    console.log(`[RUNTIME-VERIFY] Model Used: Groq (strategic analysis)`);
     console.log(`[RUNTIME-VERIFY] ===== HYBRID ANALYSIS PIPELINE END =====`);
 
-    // DEFENSIVE NORMALIZATION: Log when LLM output is incomplete
+    // DEFENSIVE NORMALIZATION (Same as before)
     const hasBrandStrategy = strategicAnalysis.brandAnalysis?.brandStrategyWindow &&
         strategicAnalysis.brandAnalysis.brandStrategyWindow.length > 0;
     const hasBrandArchetype = strategicAnalysis.brandAnalysis?.brandArchetypeDetail &&
         strategicAnalysis.brandAnalysis.brandArchetypeDetail.archetype;
-
-    if (!hasBrandStrategy) {
-        console.warn('[BACKEND-NORMALIZE] LLM did not return brandStrategyWindow - frontend will show empty state');
-    }
-    if (!hasBrandArchetype) {
-        console.warn('[BACKEND-NORMALIZE] LLM did not return brandArchetypeDetail - frontend will show empty state');
-    }
-    if (!strategicAnalysis.industry) {
-        console.warn('[BACKEND-NORMALIZE] LLM did not return industry classification');
-    }
 
     // Map to AnalysisResult format
     const result: any = {
@@ -743,7 +770,6 @@ const analyzeCollateralHybrid = async (
             brandPersonality: strategicAnalysis.brandAnalysis.brandPersonality,
             reasonsToBelieve: strategicAnalysis.brandAnalysis.reasonsToBelieve,
         },
-        // Pass through undefined if LLM didn't generate - frontend guards handle this
         brandStrategyWindow: hasBrandStrategy ? strategicAnalysis.brandAnalysis.brandStrategyWindow : undefined,
         brandArchetypeDetail: hasBrandArchetype ? strategicAnalysis.brandAnalysis.brandArchetypeDetail : undefined,
         roiMetrics: strategicAnalysis.roiMetrics,
@@ -752,15 +778,13 @@ const analyzeCollateralHybrid = async (
         industry: strategicAnalysis.industry,
     };
 
-    // Extract and preserve unavailability metadata (attached by Groq analyzer)
+    // Extract and preserve unavailability metadata
     const brandAnalysisAny = strategicAnalysis.brandAnalysis as any;
     if (brandAnalysisAny._brandStrategyUnavailable) {
         result.brandStrategyUnavailable = brandAnalysisAny._brandStrategyUnavailable;
-        console.log('[BACKEND-NORMALIZE] Preserved BrandStrategy unavailability metadata');
     }
     if (brandAnalysisAny._brandArchetypeUnavailable) {
         result.brandArchetypeUnavailable = brandAnalysisAny._brandArchetypeUnavailable;
-        console.log('[BACKEND-NORMALIZE] Preserved BrandArchetype unavailability metadata');
     }
 
     return result;
@@ -952,13 +976,14 @@ const analyzeCollateralSmart = async (
     analysisLabel: string,
     fileData?: string | null,
     mimeType?: string | null,
-    fileUri?: string | null
+    fileUri?: string | null,
+    secondaryVideoUrl?: string | null
 ): Promise<AnalysisResult> => {
     console.log(`[RUNTIME-VERIFY] analyzeCollateralSmart called`);
     if (USE_HYBRID_ANALYSIS) {
         console.log('[ROUTER] Using HYBRID mode (Gemini + Groq)');
         console.log(`[RUNTIME-VERIFY] Routing to: analyzeCollateralHybrid`);
-        return analyzeCollateralHybrid(textContext, analysisLabel, fileData, mimeType, fileUri);
+        return analyzeCollateralHybrid(textContext, analysisLabel, fileData, mimeType, fileUri, secondaryVideoUrl);
     } else {
         console.log('[ROUTER] Using LEGACY mode (Gemini only)');
         console.log(`[RUNTIME-VERIFY] Routing to: analyzeCollateral (legacy)`);
@@ -1161,15 +1186,18 @@ app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunct
 app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction) => {
     let tempFilePath: string | null = null;
     try {
-        const { textContext, analysisLabel, fileData, mimeType, googleToken, metaToken, gaPropertyId } = req.body;
+        const { textContext, analysisLabel, fileData, mimeType, videoUrl, googleToken, metaToken, gaPropertyId } = req.body;
 
-        console.log(`[API] /api/analyze called with label="${analysisLabel}", hasFile=${!!fileData}, mimeType=${mimeType}`);
+        console.log(`[API] /api/analyze called with label="${analysisLabel}", hasFile=${!!fileData}, hasVideoUrl=${!!videoUrl}`);
         console.log(`[RUNTIME-VERIFY] ===== /api/analyze REQUEST START =====`);
         console.log(`[RUNTIME-VERIFY] Timestamp: ${new Date().toISOString()}`);
-        console.log(`[RUNTIME-VERIFY] Hybrid Mode Config: USE_HYBRID_ANALYSIS=${USE_HYBRID_ANALYSIS}`);
 
-        // Generate content hash for cache lookup
-        const contentHash = fileData ? generateFileHash(fileData) : generateFileHash(textContext || '');
+        if (fileData && videoUrl) {
+            console.log('[API] Tri-Input Mode Detected: Upload (Primary) + URL (Secondary)');
+        }
+
+        // Generate content hash for cache lookup (include videoUrl if present)
+        const contentHash = fileData ? generateFileHash(fileData) : generateFileHash((textContext || '') + (videoUrl || ''));
 
         // Check cache first
         const cacheResult = await checkCache(contentHash, analysisLabel);
@@ -1244,11 +1272,11 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
             console.log(`[UPLOAD] File uploaded to Gemini: ${fileUri}`);
 
             // Analyze using file URI (like URL analysis)
-            result = await analyzeCollateralSmart(fullContext, analysisLabel, null, mimeType, fileUri);
+            result = await analyzeCollateralSmart(fullContext, analysisLabel, null, mimeType, fileUri, videoUrl);
         } else {
             // For images, inline base64 is fine (they're smaller)
             console.log(`[RUNTIME-VERIFY] Calling analyzeCollateralSmart (image path)`);
-            result = await analyzeCollateralSmart(fullContext, analysisLabel, fileData, mimeType);
+            result = await analyzeCollateralSmart(fullContext, analysisLabel, fileData, mimeType, null, videoUrl);
         }
 
         console.log(`[RUNTIME-VERIFY] Analysis Complete - Industry: ${result.industry || 'N/A'}`);
