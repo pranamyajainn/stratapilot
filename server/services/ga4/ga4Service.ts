@@ -121,24 +121,9 @@ const getAuthenticatedClient = async (userId: string) => {
 
 // --- ADMIN API (Properties) ---
 
-// --- MOCK INJECTION ---
-import { MockGA4Service } from './mockData.js';
-const mockService = new MockGA4Service();
+// --- ADMIN API (Properties) ---
 
 export const listProperties = async (userId: string) => {
-    if (process.env.USE_MOCK_DATA === 'true') {
-        const props = await mockService.listProperties();
-        // Map to account structure expected by frontend
-        return [{
-            id: 'accounts/mock',
-            name: 'Mock Account',
-            properties: props.map(p => ({
-                id: p.property,
-                displayName: p.displayName
-            }))
-        }];
-    }
-
     const { client } = await getAuthenticatedClient(userId);
 
     const analyticsAdmin = google.analyticsadmin({ version: 'v1beta', auth: client });
@@ -168,11 +153,6 @@ export const listProperties = async (userId: string) => {
 
 export const selectProperty = async (userId: string, propertyId: string) => {
     // propertyId format: "properties/123456"
-
-    if (process.env.USE_MOCK_DATA === 'true') {
-        db.updatePropertySelection(userId, '123456789', 'Stratapilot Demo Store (Mock)', 'America/New_York', 'USD');
-        return { success: true, property: { displayName: 'Stratapilot Demo Store (Mock)' } };
-    }
 
     const { client } = await getAuthenticatedClient(userId);
     const analyticsAdmin = google.analyticsadmin({ version: 'v1beta', auth: client });
@@ -214,10 +194,7 @@ export const getReport = async (
     reportType: 'overview' | 'acquisition' | 'conversions' | 'landing-pages' | 'context',
     rangeDays: number
 ) => {
-    if (process.env.USE_MOCK_DATA === 'true') {
-        // In mock mode, we skip auth client check
-        return mockService.runReport('mock_property', { dimensions: [reportType === 'acquisition' ? { name: 'sessionSource' } : { name: 'date' }] });
-    }
+
 
     const { client, propertyId, connection } = await getAuthenticatedClient(userId);
 

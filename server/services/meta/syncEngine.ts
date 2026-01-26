@@ -85,14 +85,7 @@ export class SyncEngine {
     }
 
     protected createService(token: string): MetaService {
-        if (process.env.USE_MOCK_DATA === 'true') {
-            console.log('[SYNC ENGINE] Using MockMetaService');
-            // Dynamically require to avoid circular deps if not careful, though here imports are fine
-            // We need to import it at top actually, but let's do lazy dynamic import if possible or just standard import
-            // Since I cannot change imports easily with this tool without rewriting file, I'll rely on the class already having access if I add import.
-            // Wait, I need to add the import first.
-            return new (require('./mockMetaService.js').MockMetaService)(token);
-        }
+
         return new MetaService(token);
     }
 

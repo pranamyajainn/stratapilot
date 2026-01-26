@@ -4,7 +4,7 @@ import * as ga4Db from '../services/ga4/ga4Db.js';
 
 const router = express.Router();
 
-// Middleware to ensure user_id is present (mock auth for now or rely on existing auth)
+// Middleware to ensure user_id is present
 // Assuming req.user or req.headers['x-user-id'] or similar. 
 // For this integration, I'll assume a middleware populates `req.user` or we use a fixed test ID if not present, 
 // BUT for production we need real user context.
@@ -18,9 +18,7 @@ const getUserId = (req: express.Request): string => {
 
 // Start OAuth
 router.get('/auth/google/start', (req, res) => {
-    if (process.env.USE_MOCK_DATA === 'true') {
-        return res.redirect('/api/auth/google/callback?code=mock_ga4_code');
-    }
+
     const url = ga4Service.getAuthUrl();
     res.redirect(url);
 });
@@ -32,21 +30,7 @@ router.get('/auth/google/callback', async (req, res) => {
 
         const userId = 'default-user'; // FIXME: Use state param to pass user ID back
 
-        if (process.env.USE_MOCK_DATA === 'true' && code === 'mock_ga4_code') {
-            // Mock link
-            ga4Db.upsertConnection({
-                id: 'mock_conn_123',
-                user_id: userId,
-                refresh_token_encrypted: 'mock_refresh',
-                scopes: '[]',
-                revenue_allowed: true,
-                timezone: 'America/New_York',
-                currency: 'USD',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            });
-            return res.redirect('http://localhost:5173/?ga4=success');
-        }
+
 
         if (!code || typeof code !== 'string') {
             throw new Error('Invalid code');

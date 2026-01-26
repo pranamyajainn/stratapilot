@@ -1127,8 +1127,9 @@ app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunct
 
         console.log(`[API] /api/analyze-url called for ${videoUrl}`);
 
-        // Generate URL hash for cache (weekly expiry for freshness)
-        const contentHash = generateUrlHash(videoUrl);
+        // Generate URL hash for cache (weekly expiry for freshness) + include tokens
+        const tokenHash = (metaToken ? 'meta' : '') + (googleToken ? 'google' : '') + (gaPropertyId || '');
+        const contentHash = generateUrlHash(videoUrl + tokenHash);
 
         // Check cache first
         const cacheResult = await checkCache(contentHash, analysisLabel);
@@ -1170,15 +1171,11 @@ app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunct
 
         if (metaToken) {
             console.log('[DATA] Fetching Meta Ads Data...');
-            try {
-                const metaData = await fetchMetaAdsData(metaToken);
-                const metaInsights = extractMetaAdsInsights(metaData);
-                externalDataContext += formatInsightsForLLM(metaInsights);
-                console.log(`[META INSIGHTS] Performance: ${metaInsights.performanceSignal}, Findings: ${metaInsights.keyFindings.length}`);
-            } catch (e: any) {
-                console.error("Failed to fetch Meta data", e.message);
-                externalDataContext += `\n\n[META ADS DATA UNAVAILABLE: ${e.message}]`;
-            }
+            // DIRECT CALL - NO CATCH. Failures will bubble to global error handler and abort request.
+            const metaData = await fetchMetaAdsData(metaToken);
+            const metaInsights = extractMetaAdsInsights(metaData);
+            externalDataContext += formatInsightsForLLM(metaInsights);
+            console.log(`[META INSIGHTS] Performance: ${metaInsights.performanceSignal}, Findings: ${metaInsights.keyFindings.length}`);
         }
 
         // Add disconnected state context if no data sources
@@ -1217,8 +1214,11 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
             console.log('[API] Tri-Input Mode Detected: Upload (Primary) + URL (Secondary)');
         }
 
-        // Generate content hash for cache lookup (include videoUrl if present)
-        const contentHash = fileData ? generateFileHash(fileData) : generateFileHash((textContext || '') + (videoUrl || ''));
+        // Generate content hash for cache lookup (include videoUrl and tokens to prevent stale cache on new data connection)
+        const tokenHash = (metaToken ? 'meta' : '') + (googleToken ? 'google' : '') + (gaPropertyId || '');
+        const contentHash = fileData
+            ? generateFileHash(fileData + tokenHash)
+            : generateFileHash((textContext || '') + (videoUrl || '') + tokenHash);
 
         // Check cache first
         const cacheResult = await checkCache(contentHash, analysisLabel);
@@ -1247,15 +1247,11 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
 
         if (metaToken) {
             console.log('[DATA] Fetching Meta Ads Data...');
-            try {
-                const metaData = await fetchMetaAdsData(metaToken);
-                const metaInsights = extractMetaAdsInsights(metaData);
-                externalDataContext += formatInsightsForLLM(metaInsights);
-                console.log(`[META INSIGHTS] Performance: ${metaInsights.performanceSignal}, Findings: ${metaInsights.keyFindings.length}`);
-            } catch (e: any) {
-                console.error("Failed to fetch Meta data", e.message);
-                externalDataContext += `\n\n[META ADS DATA UNAVAILABLE: ${e.message}]`;
-            }
+            // DIRECT CALL - NO CATCH. Failures will bubble to global error handler.
+            const metaData = await fetchMetaAdsData(metaToken);
+            const metaInsights = extractMetaAdsInsights(metaData);
+            externalDataContext += formatInsightsForLLM(metaInsights);
+            console.log(`[META INSIGHTS] Performance: ${metaInsights.performanceSignal}, Findings: ${metaInsights.keyFindings.length}`);
         }
 
         // Add disconnected state context if no data sources

@@ -28,6 +28,8 @@ export const getMetaTokens = async (code: string) => {
 };
 
 export const fetchMetaAdsData = async (accessToken: string) => {
+
+
     try {
         // 1. Get Ad Accounts
         const accountsRes = await axios.get('https://graph.facebook.com/v18.0/me/adaccounts', {
@@ -63,7 +65,6 @@ export const fetchMetaAdsData = async (accessToken: string) => {
 
     } catch (error: any) {
         console.error('Meta Data Fetch Error:', error.response?.data || error.message);
-        // Return empty or error object instead of crashing
-        return { source: 'Meta Ads', error: 'Failed to fetch insights' };
+        throw new Error(`Meta Ads API Failure: ${error.response?.data?.error?.message || error.message}`);
     }
 };

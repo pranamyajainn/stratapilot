@@ -18,7 +18,7 @@ export class TokenManager {
     }
 
     static getAuthUrl(state: string): string {
-        const scopes = ['ads_read', 'read_insights']; // Add 'ads_management' if needed later
+        const scopes = ['ads_read', 'business_management']; // Required scopes for ads access
         const encodedRedirectUri = encodeURIComponent(META_REDIRECT_URI);
         return `https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodedRedirectUri}&state=${state}&scope=${scopes.join(',')}`;
     }

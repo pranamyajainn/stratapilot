@@ -57,9 +57,17 @@ Before finalizing a diagnostic, ask: "Could this apply to a different ad?"
 
 ---
 
+## 6. DATA SYNTHESIS
+If the User Context contains **Performance Data** (e.g., CTR, CPC, Spend):
+- Use these signals to validate your visual diagnostics.
+- Example: If Context says "High CTR", your "Immediate Attention" score should likely be higher.
+- Example: If Context says "High CPC", suggest audience/targeting issues in commentary.
+
+---
+
 ## INPUTS
 - visualFeatures: Ground truth data.
-- User Context: Brand, Category, Objective (if provided).
+- User Context: Brand, Category, Objective, and **External Performance Data** (Meta/GA4).
 - Competitive Context: (if provided).
 
 ## OUTPUT FORMAT
