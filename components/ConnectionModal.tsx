@@ -14,6 +14,7 @@ interface ConnectionModalProps {
 export const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, onClose, onSuccess }) => {
     const [propertyId, setPropertyId] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     if (!isOpen) return null;
 
@@ -24,6 +25,9 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, 
             return;
         }
 
+        setError(null);
+        setIsProcessing(true);
+
         const width = 500;
         const height = 600;
         const left = window.screen.width / 2 - width / 2;
@@ -31,7 +35,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, 
 
         // Use current origin to support both localhost and ngrok
         const baseUrl = window.location.origin;
-        const url = `${baseUrl}/api/auth/meta`;
+        const url = `${baseUrl}/api/auth/meta/login`;
 
         const popup = window.open(
             url,
@@ -39,15 +43,56 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, 
             `width=${width},height=${height},top=${top},left=${left}`
         );
 
-        const messageHandler = (event: MessageEvent) => {
-            if (event.origin !== baseUrl) return; // Security check
+        if (!popup) {
+            setError('Popup blocked. Please allow popups for this site.');
+            setIsProcessing(false);
+            return;
+        }
 
-            if (event.data.type === 'META_AUTH_SUCCESS') {
+        let popupCheckInterval: ReturnType<typeof setInterval> | null = null;
+        let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+        const messageHandler = (event: MessageEvent) => {
+            // Security check
+            if (event.origin !== baseUrl) {
+                console.warn('[Meta Auth] Origin mismatch:', event.origin, 'expected:', baseUrl);
+                return;
+            }
+
+            if (event.data?.type === 'META_AUTH_SUCCESS') {
+                console.log('[Meta Auth] Success message received');
                 window.removeEventListener('message', messageHandler);
-                // Call onSuccess with the token
-                (onSuccess as any)(event.data.token);
+                if (popupCheckInterval) clearInterval(popupCheckInterval);
+                if (timeoutHandle) clearTimeout(timeoutHandle);
+                setIsProcessing(false);
+                
+                if (event.data.token) {
+                    (onSuccess as any)(event.data.token);
+                } else {
+                    setError('No token received from authentication');
+                }
             }
         };
+
+        // Monitor if popup closes without message
+        popupCheckInterval = setInterval(() => {
+            if (popup.closed) {
+                clearInterval(popupCheckInterval);
+                if (timeoutHandle) clearTimeout(timeoutHandle);
+                window.removeEventListener('message', messageHandler);
+                setIsProcessing(false);
+                setError('Authentication window closed. Please try again.');
+            }
+        }, 500);
+
+        // Timeout after 5 minutes
+        timeoutHandle = setTimeout(() => {
+            if (popupCheckInterval) clearInterval(popupCheckInterval);
+            window.removeEventListener('message', messageHandler);
+            if (!popup.closed) popup.close();
+            setIsProcessing(false);
+            setError('Authentication timeout. Please try again.');
+        }, 5 * 60 * 1000);
 
         window.addEventListener('message', messageHandler);
     };
@@ -73,6 +118,15 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, 
                         StrataPilot uses this to calibrate its analysis against your actual metrics.
                     </p>
 
+                    {error && (
+                        <div className="mb-6 p-4 bg-red-50 rounded-xl border border-red-200">
+                            <p className="text-xs text-red-800 leading-relaxed flex items-center gap-2">
+                                <span className="text-sm">⚠️</span>
+                                {error}
+                            </p>
+                        </div>
+                    )}
+
                     {type === 'GA4' && (
                         <div className="mb-6 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
                             <p className="text-xs text-indigo-800 leading-relaxed">
@@ -84,8 +138,8 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, 
 
                     <button
                         onClick={handleConnect}
-                        disabled={type === 'GA4' && isProcessing} // Disable while redirecting
-                        className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all bg-slate-900 hover:bg-slate-800 text-white shadow-lg disabled:opacity-50"
+                        disabled={type === 'GA4' && isProcessing || isProcessing} // Disable while processing
+                        className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all bg-slate-900 hover:bg-slate-800 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isProcessing ? <Loader2 size={18} className="animate-spin" /> : `Log in with ${type === 'GA4' ? 'Google' : 'Facebook'}`}
                     </button>

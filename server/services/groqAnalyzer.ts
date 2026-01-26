@@ -401,7 +401,11 @@ Each diagnostic must have: metric, score, benchmark, rubricTier, subInsights (5 
         );
 
         if (response.success && response.data?.diagnostics) {
-            return response.data.diagnostics;
+            // SAFEGUARD: Ensure all scores are valid numbers
+            return response.data.diagnostics.map(d => ({
+                ...d,
+                score: (typeof d.score === 'number' && !isNaN(d.score)) ? d.score : 65 // Default to benchmark if invalid
+            }));
         }
 
         // Fallback diagnostics

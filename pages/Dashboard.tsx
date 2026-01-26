@@ -198,7 +198,14 @@ Finally, success will be measured not just by leads generated, but by the 'quali
             setResult({ ...data, auditId: newAuditId });
             setLoadingState('success');
         } catch (err: any) {
-            setError(err.message || "Failed to analyze collateral. Please try again.");
+            console.error("Analysis Error:", err);
+            let errorMessage = err.message || "Failed to analyze collateral. Please try again.";
+
+            if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
+                errorMessage = "Connection to server failed. Please ensure the backend is running on port 3000.";
+            }
+
+            setError(errorMessage);
             setLoadingState('error');
         }
     };
@@ -301,7 +308,7 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                 {loadingState === 'idle' && !result && (
                     <div className="pt-6 pb-4 text-center animate-in fade-in slide-in-from-top-4 duration-700">
                         <h2 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-indigo-800 to-slate-900 tracking-tight mb-4 font-serif"> Predictive Creative Intelligence </h2>
-                        <p className="text-base leading-relaxed max-w-3xl mx-auto text-slate-600 font-light"> Too many ads miss the mark — they fail to connect with the right audience, dilute brand impact, and waste valuable marketing spend. Without a clear way to measure effectiveness, brands risk putting out creative that looks good but doesn’t deliver results. <br className="hidden md:block" /> <span className="font-semibold text-indigo-700">StrataPilot</span> gives you the vision to fix creative before you spend making it the apt Ad diagnostic tool. </p>
+                        <p className="text-base leading-relaxed max-w-3xl mx-auto text-slate-600 font-light"> StrataPilot is the enterprise-grade creative intelligence engine that turns your ad data into boardroom-ready science. By analyzing thousands of visual and textual variables against millions of performance benchmarks, we predict ROAS, CTR, and brand lift with forensic accuracy. Stop guessing what works—upload your creative, connect your data, and let our neural networks reveal the truth behind your performance. </p>
                     </div>
                 )}
 

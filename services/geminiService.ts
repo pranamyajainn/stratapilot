@@ -30,27 +30,40 @@ export const analyzeCollateral = async (
     mimeType = mediaFile.type;
   }
 
-  const response = await fetch(`${API_BASE_URL}/analyze`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      textContext,
-      analysisLabel,
-      fileData,
-      mimeType,
-      ...tokens,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
 
-  const result = await response.json();
+  try {
+    const response = await fetch(`${API_BASE_URL}/analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        textContext,
+        analysisLabel,
+        fileData,
+        mimeType,
+        ...tokens,
+      }),
+      signal: controller.signal
+    });
 
-  if (!response.ok || !result.success) {
-    throw new Error(result.error || 'Failed to analyze collateral');
+    clearTimeout(timeoutId);
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to analyze collateral');
+    }
+
+    return result.data as AnalysisResult;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Analysis request timed out after 2 minutes. Please try again with a smaller file.');
+    }
+    throw error;
   }
-
-  return result.data as AnalysisResult;
 };
 
 export const analyzeUrl = async (
@@ -59,26 +72,39 @@ export const analyzeUrl = async (
   analysisLabel: string,
   tokens?: { googleToken?: string, metaToken?: string, gaPropertyId?: string }
 ): Promise<AnalysisResult> => {
-  const response = await fetch(`${API_BASE_URL}/analyze-url`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      videoUrl,
-      textContext,
-      analysisLabel,
-      ...tokens,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
 
-  const result = await response.json();
+  try {
+    const response = await fetch(`${API_BASE_URL}/analyze-url`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        videoUrl,
+        textContext,
+        analysisLabel,
+        ...tokens,
+      }),
+      signal: controller.signal
+    });
 
-  if (!response.ok || !result.success) {
-    throw new Error(result.error || 'Failed to analyze URL');
+    clearTimeout(timeoutId);
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to analyze URL');
+    }
+
+    return result.data as AnalysisResult;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Analysis request timed out after 2 minutes.');
+    }
+    throw error;
   }
-
-  return result.data as AnalysisResult;
 };
 
 export const generateCampaignStrategy = async (

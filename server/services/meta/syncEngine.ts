@@ -148,8 +148,17 @@ export class SyncEngine {
             // 4. Sync Creatives
             // Collect unique creative IDs from ads
             const creativeIds = [...new Set(ads.map(ad => ad.creative?.id).filter(Boolean))];
-            // In a real optimized engine, we'd check which IDs we already have and only fetch new/stale ones.
-            // For now, fetch them individually (or in small batches)
+
+            // Optimization: Filter out creatives we already have
+            const existingCreatives = this.db.prepare(`
+                SELECT id FROM ad_creatives WHERE id IN (${creativeIds.map(() => '?').join(',')})
+            `).all(creativeIds) as { id: string }[];
+
+            const existingIds = new Set(existingCreatives.map(c => c.id));
+            const newCreativeIds = creativeIds.filter(id => !existingIds.has(id));
+
+            console.log(`[SYNC] Found ${creativeIds.length} creatives. Fetching ${newCreativeIds.length} new.`);
+
             const creativeStmt = this.db.prepare(`
                 INSERT OR REPLACE INTO ad_creatives (id, account_id, name, object_type, thumbnail_url, image_url, video_id, title, body, call_to_action_type, link_url)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -157,8 +166,8 @@ export class SyncEngine {
 
             // Limit concurrency for creative fetching
             const chunkSize = 5;
-            for (let i = 0; i < creativeIds.length; i += chunkSize) {
-                const chunk = creativeIds.slice(i, i + chunkSize);
+            for (let i = 0; i < newCreativeIds.length; i += chunkSize) {
+                const chunk = newCreativeIds.slice(i, i + chunkSize);
                 await Promise.all(chunk.map(async (cid) => {
                     try {
                         const c = await service.getCreativeDetails(cid);

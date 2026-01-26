@@ -45,25 +45,28 @@ ${ctx.textContext}
 ${ctx.competitiveContext ? `## COMPETITIVE CONTEXT\n${ctx.competitiveContext}` : ''}
 
 **GENERATE:**
-- brandAnalysis (basic fields only): consumerInsight, functionalBenefit, emotionalBenefit, brandPersonality, reasonsToBelieve
-  Use hedged language ("likely", "typical")
+- brandAnalysis (basic fields): consumerInsight, functionalBenefit, emotionalBenefit, brandPersonality, reasonsToBelieve
+  (Use hedged language: "likely", "suggests", "typical")
 
-**RETURN UNAVAILABLE:**
-- brandStrategyWindowUnavailable: {
-    "available": false,
-    "reason": "Brand strategy requires visual brand identity (logo, colors, typography, layout)",
-    "partialInsights": "[brief high-level positioning inference from text]"
+**BRAND STRATEGY WINDOW:**
+Generate 10 cards based on INFERRED intent from text.
+Mark confidence as "low" for visual-dependent cards (Sensorial, Distinctive Assets).
+Return: { "brandStrategyWindow": [array of 10 cards] }
+
+**BRAND ARCHETYPE:**
+Infer archetype from text tone and competitive context.
+{ "brandArchetypeDetail": {
+    "archetype": "...",
+    "value": "...",
+    "quote": "[Representative quote from text]",
+    "reasoning": "Inferred from verbal tone and category norms (Low Confidence)",
+    "confidence": "low"
   }
-  
-- brandArchetypeUnavailable: {
-    "available": false,
-    "reason": "Archetype classification requires consistent brand personality signals across visual + verbal",
-    "hint": "[vague directional hint based on text tone]"
-  }
+}
 
 Output valid JSON.`,
 
-    allowedSections: ['brandAnalysis']
+    allowedSections: ['brandAnalysis', 'brandStrategyWindow', 'brandArchetypeDetail']
 };
 
 /**
@@ -98,28 +101,19 @@ Generate ONLY these 5 positioning-focused cards:
 
 Return as: { "brandStrategyWindow": [array of 5 cards] }
 
-For visual cards, return:
-{ "brandStrategyUnavailable": {
-    "missingCards": ["Sensorial Promise", "Distinctive Assets", "Visual Personality", "Memory Structure", "Value Proposition Framing"],
-    "reason": "Require visual brand identity analysis"
-  }
-}
+**BRAND STRATEGY WINDOW:**
+Generate ALL 10 cards.
+For visual cards (Sensorial, Assets), infer "likely" attributes based on category norms.
+Return: { "brandStrategyWindow": [array of 10 cards] }
 
 **BRAND ARCHETYPE:**
-IF brand values/personality explicitly stated, infer archetype:
+Infer archetype from stated values and tone.
 { "brandArchetypeDetail": {
     "archetype": "...",
     "value": "...",
     "quote": "...",
-    "reasoning": "Based on STATED values: [list]. Inferred from verbal signals; visual confirmation pending.",
+    "reasoning": "Based on STATED values. Inferred from verbal signals (Moderate Confidence).",
     "confidence": "moderate"
-  }
-}
-
-IF personality unclear, return:
-{ "brandArchetypeUnavailable": {
-    "available": false,
-    "reason": "Brand personality not explicit in text context"
   }
 }
 
@@ -162,19 +156,19 @@ Generate ONLY visual-dependent cards (6 cards):
 
 Return as: { "brandStrategyWindow": [array of 6 cards] }
 
-For brand-conceptual cards, return:
-{ "brandStrategyUnavailable": {
-    "missingCards": ["Brand Purpose", "Rational Promise", "Reason to Believe", "Strategic Role"],
-    "reason": "Require brand positioning context (mission, values, proof points)"
-  }
-}
+**BRAND STRATEGY WINDOW:**
+Generate ALL 10 cards.
+For brand-conceptual cards (Purpose, Role), infer from visual narrative/semiotics.
+Return: { "brandStrategyWindow": [array of 10 cards] }
 
 **BRAND ARCHETYPE:**
-Return unavailable:
-{ "brandArchetypeUnavailable": {
-    "available": false,
-    "reason": "Archetype requires brand personality consistency across visual AND verbal cues",
-    "visualHint": "[e.g., 'premium aesthetic', 'playful tone', 'authoritative framing']"
+Infer archetype from visual mood, color psychology, and composition.
+{ "brandArchetypeDetail": {
+    "archetype": "...",
+    "value": "...",
+    "quote": "[Visual description]",
+    "reasoning": "Inferred from visual semiotics and aesthetic codes (Moderate Confidence).",
+    "confidence": "moderate"
   }
 }
 

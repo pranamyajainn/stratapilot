@@ -18,46 +18,35 @@ const getSyncEngine = () => {
 // -- AUTH --
 
 router.get('/auth/meta/login', (req, res) => {
-    if (process.env.USE_MOCK_DATA === 'true') {
-        // Redirect directly to callback with a fake code
-        return res.redirect('/api/auth/meta/callback?code=mock_auth_code_123');
-    }
-    const url = TokenManager.getAuthUrl();
+    const state = TokenManager.generateState();
+
+    // Store state in a secure, httpOnly cookie (valid for 5 mins)
+    res.cookie('meta_auth_state', state, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 5 * 60 * 1000
+    });
+
+    const url = TokenManager.getAuthUrl(state);
     res.redirect(url);
 });
 
 router.get('/auth/meta/callback', async (req, res) => {
     const code = req.query.code as string;
+    const receivedState = req.query.state as string;
+    const storedState = req.cookies?.meta_auth_state;
     const userId = 'default_user'; // TODO: Get from session/auth middleware
 
-    if (process.env.USE_MOCK_DATA === 'true' && code === 'mock_auth_code_123') {
-        // Mock success flow
-        const appUrl = process.env.APP_URL || 'http://localhost:5173'; // Frontend URL needs to be correct. Usually 5173 for Vite dev
-        // In server.ts the appUrl default was 3000 but the frontend is on 5173? 
-        // The previous code had 3000. Let's use what the user likely has or config.
-        // The user request context shows "http://localhost:5173/?ga4=success" in ga4Routes.
-        // So I should use 5173 for postMessage targetOrigin.
+    // Clear state cookie
+    res.clearCookie('meta_auth_state');
 
-        // Also simulate storing token
-        TokenManager.storeUserToken(userId, 'mock_access_token', 3600);
-
-        // Link mock account
-        const db = getMetaDb();
-        db.prepare(`
-            INSERT OR REPLACE INTO ad_accounts (id, account_id, name, currency, timezone_name, timezone_id, account_status, disable_reason, linked_by_user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run('act_mock_123', 'mock_123', 'Mock Ad Account (US)', 'USD', 'America/Los_Angeles', 1, 1, 0, userId);
-
-        return res.send(`
-            <script>
-                window.opener.postMessage({ type: 'META_AUTH_SUCCESS' }, '*'); // Allow * for dev convenience or 'http://localhost:5173'
-                window.close();
-            </script>
-            <h1>Connected (Mock Mode)!</h1>
-        `);
-    }
-
+    // AUTH VALIDATION
     if (!code) return res.status(400).send('No code provided');
+
+    if (!receivedState || !storedState || !TokenManager.validateState(receivedState, storedState)) {
+        console.error('[META AUTH] CSRF Warning: State mismatch or missing');
+        return res.status(403).send('Security check failed (CSRF)');
+    }
 
     try {
         // Exchange Code
@@ -67,7 +56,8 @@ router.get('/auth/meta/callback', async (req, res) => {
         const longToken = await TokenManager.getLongLivedToken(tokenData.access_token);
 
         // Store
-        TokenManager.storeUserToken(userId, longToken, tokenData.expires_in);
+        // Long-lived tokens usually last ~60 days. We store expiry to schedule refreshes.
+        TokenManager.storeUserToken(userId, longToken, 60 * 24 * 60 * 60); // Approx 60 days
 
         // Discover Ad Accounts immediately
         const service = new MetaService(longToken);
@@ -86,14 +76,20 @@ router.get('/auth/meta/callback', async (req, res) => {
         });
         insertTx(accounts);
 
-        // Send success page that closes itself
-        const appUrl = process.env.APP_URL || 'http://localhost:3000';
+        // Send success page that closes itself and notifies frontend
+        const appUrl = process.env.APP_URL || 'http://localhost:5173'; // Default to Vite port
         res.send(`
             <script>
-                window.opener.postMessage({ type: 'META_AUTH_SUCCESS' }, '${appUrl}');
-                window.close();
+                try {
+                    window.opener.postMessage({ type: 'META_AUTH_SUCCESS', token: '${longToken}' }, '${appUrl}');
+                    setTimeout(() => window.close(), 500);
+                } catch (e) {
+                    console.error('postMessage failed:', e);
+                    window.close();
+                }
             </script>
             <h1>Connected!</h1>
+            <p>You can close this window now.</p>
         `);
 
     } catch (error) {
@@ -190,6 +186,27 @@ router.get('/meta/sync/runs/:id', (req, res) => {
     const row = db.prepare('SELECT * FROM sync_runs WHERE id = ?').get(req.params.id);
     if (!row) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true, data: row });
+});
+
+// DEBUG: Check token status
+router.get('/meta/debug/token', async (req, res) => {
+    // In prod, protect this route!
+    const userId = 'default_user';
+    const db = getMetaDb();
+    const row = db.prepare('SELECT access_token, token_expires_at FROM authorized_users WHERE user_id = ?').get(userId) as any;
+
+    if (!row) return res.status(404).json({ error: 'No token found' });
+
+    const now = Math.floor(Date.now() / 1000);
+    const isValid = row.token_expires_at ? row.token_expires_at > now : true;
+    const daysRemaining = row.token_expires_at ? ((row.token_expires_at - now) / 86400).toFixed(1) : 'Unknown';
+
+    res.json({
+        hasToken: true,
+        isValid,
+        expiresAt: row.token_expires_at ? new Date(row.token_expires_at * 1000).toISOString() : 'Never',
+        daysRemaining: `${daysRemaining} days`
+    });
 });
 
 router.post('/meta/disconnect', (req, res) => {

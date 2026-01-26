@@ -50,7 +50,7 @@ interface AnalysisViewProps {
 }
 
 const normalizeScore = (val: number | undefined): number => {
-  if (val === undefined || val === null) return 0;
+  if (val === undefined || val === null || isNaN(val)) return 0;
   return val <= 10 ? Math.round(val * 10) : val;
 };
 
@@ -402,35 +402,8 @@ const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Parti
 };
 
 const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
-  // DEFENSIVE GUARD: Handle missing or incomplete data
-  if (!detail || !detail.archetype || !detail.quote || !detail.reasoning) {
-    console.warn('[BrandArchetypeMatrix] Received incomplete detail data - rendering empty state', {
-      hasDetail: !!detail,
-      hasArchetype: detail?.archetype,
-      hasQuote: detail?.quote,
-      hasReasoning: detail?.reasoning
-    });
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-white shadow-md rounded-xl border border-slate-100">
-            <Crown size={24} className="text-indigo-600" />
-          </div>
-          <div>
-            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BRAND ARCHETYPE MATRIX</h3>
-          </div>
-        </div>
-        <div className="bg-slate-50 rounded-[28px] p-12 text-center border border-slate-200">
-          <Crown size={48} className="mx-auto text-slate-300 mb-4" />
-          <h3 className="text-lg font-bold text-slate-600 mb-2">Brand Archetype Data Not Available</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto">
-            Brand archetype detection requires specific brand personality signals from creative content.
-            Provide brand-focused visual or narrative context for archetype classification.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // REMOVED DEFENSIVE GUARD - ALWAYS RENDER INFERRED/PARTIAL DATA
+  if (!detail) return null;
 
   const archetypes = [
     { name: "The Innocent", value: "SAFETY", icon: Sun },
@@ -447,7 +420,8 @@ const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
     { name: "The Creator", value: "INNOVATION", icon: Palette },
   ];
 
-  const detected = detail.archetype;  // No misleading default
+  const detected = detail.archetype || "Inferred Archetype (Low Confidence)";
+
 
   return (
     <div className="space-y-6">
@@ -506,31 +480,8 @@ const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
 };
 
 const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[] }> = ({ cards }) => {
-  // DEFENSIVE GUARD: Handle missing or empty data
-  if (!cards || cards.length === 0) {
-    console.warn('[BrandStrategyWindow] Received empty or undefined cards - rendering empty state');
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-white shadow-md rounded-xl border border-slate-100">
-            <LayoutGrid size={24} className="text-slate-700" />
-          </div>
-          <div>
-            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BRAND STRATEGY WINDOW</h3>
-            <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Decoding the master frame of brand intent.</p>
-          </div>
-        </div>
-        <div className="bg-slate-50 rounded-[28px] p-12 text-center border border-slate-200">
-          <LayoutGrid size={48} className="mx-auto text-slate-300 mb-4" />
-          <h3 className="text-lg font-bold text-slate-600 mb-2">Brand Strategy Data Not Available</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto">
-            Brand strategy analysis requires visual creative input or brand-specific context.
-            Try uploading an image, video, or providing more detailed brand information.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // REMOVED DEFENSIVE GUARD - RENDER AVAILABLE CARDS
+  const safeCards = cards || [];
 
   const iconMap: Record<string, any> = {
     "RATIONAL PROMISE": { icon: Brain, color: "text-blue-500", bg: "bg-blue-50", border: "border-blue-100" },
@@ -557,7 +508,7 @@ const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[] }> = ({ cards }
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {cards.map((card, idx) => {
+        {safeCards.length > 0 ? safeCards.map((card, idx) => {
           const theme = iconMap[card.title.toUpperCase()] || { icon: Sparkles, color: "text-slate-500", bg: "bg-slate-50", border: "border-slate-100" };
           return (
             <div key={idx} className={`bg-white rounded-[24px] border ${theme.border} p-6 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.03)] flex flex-col h-full relative overflow-hidden group hover:-translate-y-1 transition-all duration-300`}>
@@ -574,7 +525,11 @@ const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[] }> = ({ cards }
               </div>
             </div>
           );
-        })}
+        }) : (
+          <div className="col-span-full py-12 text-center text-slate-400 font-medium italic">
+            Partial data unavailable.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -964,6 +919,9 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
     await new Promise(resolve => setTimeout(resolve, 1500));
 
     try {
+      // Allow time for DOM to render the PDF overlay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       const pdf = new jsPDF({
         orientation: 'p',
         unit: 'mm',
@@ -972,26 +930,24 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
 
       const pageWidth = 210;
       const pageHeight = 297;
-      const margin = 0; // Capture elements full bleed
 
       // --- PAGE 1: SCORECARD ---
       const scorecardEl = document.getElementById('pdf-scorecard');
       if (scorecardEl) {
+        console.log("Capturing Scorecard...");
         const canvas = await html2canvas(scorecardEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
         const imgData = canvas.toDataURL('image/png');
         const imgHeight = (canvas.height * pageWidth) / canvas.width;
         pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
         addHeaderFooter(pdf, 1, "Performance Scorecard");
+      } else {
+        console.warn("PDF Scorecard element not found!");
       }
-
-      // --- PAGE 2: EXECUTIVE SUMMARY ---
-      // Need to ensure Exec Summary is rendered.
-      // For strict One Diag/Page, we might skip Exec Summary grid or put it on Page 2.
-      // Let's Put ROI first as Page 2 per request "Scorecard -> ROI -> Diags"
 
       // --- PAGE 2: ROI & VALUE ---
       const roiEl = document.getElementById('pdf-roi');
       if (roiEl) {
+        console.log("Capturing ROI...");
         pdf.addPage();
         const canvas = await html2canvas(roiEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
         const imgData = canvas.toDataURL('image/png');
@@ -1004,6 +960,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
       for (let i = 0; i < diagnostics.length; i++) {
         const diagEl = document.getElementById(`pdf-diagnostic-${i}`);
         if (diagEl) {
+          console.log(`Capturing Diagnostic ${i + 1}...`);
           pdf.addPage();
           const canvas = await html2canvas(diagEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
           const imgData = canvas.toDataURL('image/png');
@@ -1147,12 +1104,12 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
         )}
 
         {/* TAB 2: KEY DETERMINANTS */}
-        {(activeTab === "key-determinants" || isPdfMode) && (
+        {activeTab === "key-determinants" && (
           <KeyDeterminants driver={driver || {} as DiagnosticItem} detractor={detractor || {} as DiagnosticItem} />
         )}
 
         {/* TAB 3: EXECUTIVE SUMMARY */}
-        {(activeTab === "executive-summary" || isPdfMode) && (
+        {activeTab === "executive-summary" && (
           <div className="space-y-6">
             <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">EXECUTIVE DIAGNOSTIC SUMMARY</h4></div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1164,7 +1121,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
         )}
 
         {/* TAB 4: DIAGNOSTIC SUMMARY */}
-        {(activeTab === "diagnostic-summary" || isPdfMode) && (
+        {activeTab === "diagnostic-summary" && (
           <div className="space-y-6">
             <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">DETAILED DIAGNOSTIC BREAKDOWN</h4></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1178,21 +1135,21 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
 
 
         {/* TAB 6: BRAND STRATEGY */}
-        {(activeTab === "brand-strategy" || isPdfMode) && (
+        {activeTab === "brand-strategy" && (
           <ErrorBoundary>
             <BrandStrategyWindow cards={localData.brandStrategyWindow} />
           </ErrorBoundary>
         )}
 
         {/* TAB 7: BRAND ARCHETYPE */}
-        {(activeTab === "brand-archetype" || isPdfMode) && (
+        {activeTab === "brand-archetype" && (
           <ErrorBoundary>
             <BrandArchetypeMatrix detail={localData.brandArchetypeDetail} />
           </ErrorBoundary>
         )}
 
         {/* TAB 8: ROI UPLIFT */}
-        {(activeTab === "roi-uplift" || isPdfMode) && (
+        {activeTab === "roi-uplift" && (
           <div className="space-y-6">
             <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">VALUE UNLOCKING & ROI PROJECTION</h4></div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1248,9 +1205,9 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
           </div>
         )}
 
-        {/* PDF GENERATION CONTAINER (Visible only in PDF Mode, used for capture) */}
+        {/* PDF GENERATION CONTAINER (Off-screen capture layer) */}
         {isPdfMode && (
-          <div className="absolute top-0 left-0 w-full z-0 pointer-events-none opacity-100 bg-white">
+          <div className="fixed top-0 left-[-9999px] width-[210mm] z-[9999] bg-white pointer-events-none opacity-0">
             {/* PAGE 1: SCORECARD */}
             <div id="pdf-scorecard" className="p-8 bg-white min-h-[1100px] flex flex-col justify-center">
               <div className="bg-slate-900 text-white p-4 rounded-full text-center shadow-md mb-8 w-full">

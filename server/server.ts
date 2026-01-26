@@ -10,6 +10,7 @@ import os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 import ytdl from '@distube/ytdl-core';
+import cookieParser from 'cookie-parser';
 // import { getGoogleAuthUrl, getGoogleTokens, fetchGA4Data } from './services/googleAnalytics.js'; // REMOVED: Legacy
 import ga4Router from './routes/ga4Routes.js';
 import { initGA4Database } from './services/ga4/ga4Db.js';
@@ -995,6 +996,7 @@ const analyzeCollateralSmart = async (
 const app = express();
 
 app.use(cors());
+app.use(cookieParser());
 app.use(express.json({ limit: '150mb' })); // Increased for video uploads up to 100MB
 
 // Request ID Middleware
@@ -1037,27 +1039,43 @@ app.get('/api/llm-stats', (req: Request, res: Response) => {
 // --- FILE UTILS for URL Analysis ---
 const downloadFile = async (url: string, destPath: string): Promise<string> => {
     return new Promise(async (resolve, reject) => {
+        const TIMEOUT_MS = 15000; // 15 seconds timeout
+        const timeout = setTimeout(() => {
+            reject(new Error(`Download timed out after ${TIMEOUT_MS}ms`));
+        }, TIMEOUT_MS);
+
+        const onFinish = (mime: string) => {
+            clearTimeout(timeout);
+            resolve(mime);
+        };
+
+        const onError = (err: any) => {
+            clearTimeout(timeout);
+            reject(err);
+        };
+
         try {
             if (ytdl.validateURL(url)) {
                 console.log(`[DOWNLOAD] Detected YouTube URL: ${url}`);
                 const stream = ytdl(url, { quality: 'lowest' }); // 'lowest' for speed/size, typically sufficient for AI
                 stream.pipe(fs.createWriteStream(destPath))
-                    .on('finish', () => resolve('video/mp4'))
-                    .on('error', reject);
+                    .on('finish', () => onFinish('video/mp4'))
+                    .on('error', onError);
             } else {
                 console.log(`[DOWNLOAD] Detected Direct URL: ${url}`);
                 const response = await axios({
                     method: 'GET',
                     url: url,
-                    responseType: 'stream'
+                    responseType: 'stream',
+                    timeout: 10000 // Connect timeout
                 });
                 const mimeType = response.headers['content-type'];
                 response.data.pipe(fs.createWriteStream(destPath))
-                    .on('finish', () => resolve(mimeType))
-                    .on('error', reject);
+                    .on('finish', () => onFinish(mimeType))
+                    .on('error', onError);
             }
         } catch (error) {
-            reject(error);
+            onError(error);
         }
     });
 };
@@ -1080,7 +1098,12 @@ const uploadToGemini = async (filePath: string, mimeType: string): Promise<strin
 
     // Wait for file to be active
     let state = file.state;
+    let attempts = 0;
     while (state === "PROCESSING") {
+        attempts++;
+        if (attempts > 30) { // 60 seconds (2s interval)
+            throw new Error("Gemini file processing timed out.");
+        }
         console.log(`[GEMINI] Processing file...`);
         await new Promise(resolve => setTimeout(resolve, 2000));
         const cleanFile = await fileManager.getFile(file.name);
@@ -1188,9 +1211,7 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
     try {
         const { textContext, analysisLabel, fileData, mimeType, videoUrl, googleToken, metaToken, gaPropertyId } = req.body;
 
-        console.log(`[API] /api/analyze called with label="${analysisLabel}", hasFile=${!!fileData}, hasVideoUrl=${!!videoUrl}`);
-        console.log(`[RUNTIME-VERIFY] ===== /api/analyze REQUEST START =====`);
-        console.log(`[RUNTIME-VERIFY] Timestamp: ${new Date().toISOString()}`);
+        console.log(`[API] /api/analyze called with label="${analysisLabel}"`);
 
         if (fileData && videoUrl) {
             console.log('[API] Tri-Input Mode Detected: Upload (Primary) + URL (Secondary)');
@@ -1275,12 +1296,11 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
             result = await analyzeCollateralSmart(fullContext, analysisLabel, null, mimeType, fileUri, videoUrl);
         } else {
             // For images, inline base64 is fine (they're smaller)
-            console.log(`[RUNTIME-VERIFY] Calling analyzeCollateralSmart (image path)`);
             result = await analyzeCollateralSmart(fullContext, analysisLabel, fileData, mimeType, null, videoUrl);
         }
 
         console.log(`[RUNTIME-VERIFY] Analysis Complete - Industry: ${result.industry || 'N/A'}`);
-        console.log(`[RUNTIME-VERIFY] ===== /api/analyze REQUEST END =====`);
+
 
 
         // Store result in cache
@@ -1369,9 +1389,57 @@ app.post('/api/strategy', async (req: Request, res: Response, next: NextFunction
 
         console.log('[API] /api/strategy called');
 
-        const result = await generateCampaignStrategy(analysis);
+        if (!analysis) {
+            throw new ValidationError("Analysis data is required for strategy generation", "MISSING_ANALYSIS");
+        }
 
-        res.json({ success: true, data: result });
+        try {
+            // Primary: Attempt LLM generation
+            const result = await generateCampaignStrategy(analysis);
+            res.json({ success: true, data: result });
+        } catch (llmError: any) {
+            console.error(`[STRATEGY] Primary LLM failed: ${llmError.message}. Activating Fallback.`);
+
+            // Fallback: Deterministic Strategy Generation
+            // construct a safe fallback strategy derived strictly from the analysis data
+            const fallbackStrategy = {
+                targetAudience: {
+                    primary: "Derived Audience",
+                    secondary: "Broad Market",
+                    mindset: "Open to category messaging"
+                },
+                coreMessage: {
+                    headline: `Optimize for ${analysis.keyDeterminants?.driver?.metric || 'Relevance'}`,
+                    subhead: "Leverage existing creative strengths while addressing detractors.",
+                    tone: "authoritative"
+                },
+                channelStrategy: [
+                    { channel: "Meta (Instagram/Facebook)", role: "Awareness", tactic: "Utilize high-scoring visual elements" },
+                    { channel: "YouTube", role: "Education", tactic: "Expand on narrative depth" }
+                ],
+                creativeTactics: [
+                    `Capitalize on ${analysis.keyDeterminants?.driver?.metric || 'strengths'}`,
+                    `Mitigate ${analysis.keyDeterminants?.detractor?.metric || 'weaknesses'}`,
+                    "Focus on visual hook retention"
+                ],
+                budgetAllocation: {
+                    awareness: 40,
+                    consideration: 40,
+                    conversion: 20
+                },
+                flighting: "Always-on with burst support",
+                kpiFramework: [
+                    { metric: "CTR", target: "1.5%" },
+                    { metric: "ROAS", target: ((analysis.holisticScorecard?.averageScore || 50) / 20).toFixed(1) + "x" }
+                ]
+            };
+
+            res.json({
+                success: true,
+                data: fallbackStrategy,
+                meta: { mode: "fallback", reason: llmError.message }
+            });
+        }
     } catch (error) {
         next(error);
     }
