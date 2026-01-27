@@ -27,10 +27,11 @@ export function extractGA4Insights(data: GA4InsightInput): ExtractedInsights {
         return {
             source: 'GA4',
             period: data.period || 'Unknown',
-            keyFindings: ['No metrics data available'],
+            fetchStatus: 'SUCCESS_NO_DATA',
+            keyFindings: ['GA4 connected, but no traffic data available for this period'],
             performanceSignal: 'unknown',
             anomalies: [],
-            recommendations: ['Ensure GA4 property is configured correctly'],
+            recommendations: ['Check date range or tag installation'],
             dataQuality: 'unavailable'
         };
     }
@@ -46,6 +47,20 @@ export function extractGA4Insights(data: GA4InsightInput): ExtractedInsights {
     const pageViews = metricsMap['screenPageViews'] || 0;
     const bounceRate = metricsMap['bounceRate'] || 0;
     const engagementRate = metricsMap['engagementRate'] || 0;
+
+    // Check for "Zero Data" despite successful fetch (e.g. all zeros)
+    if (activeUsers === 0 && sessions === 0) {
+        return {
+            source: 'GA4',
+            period: data.period,
+            fetchStatus: 'SUCCESS_NO_DATA',
+            keyFindings: ['GA4 connected, but 0 active users recorded'],
+            performanceSignal: 'unknown',
+            anomalies: [],
+            recommendations: ['Verify tracking code installation', 'Check date range selection'],
+            dataQuality: 'unavailable'
+        };
+    }
 
     // Calculate derived metrics
     const pagesPerSession = sessions > 0 ? pageViews / sessions : 0;
@@ -111,6 +126,7 @@ export function extractGA4Insights(data: GA4InsightInput): ExtractedInsights {
     return {
         source: 'GA4',
         period: data.period,
+        fetchStatus: 'SUCCESS_WITH_DATA',
         keyFindings: keyFindings.slice(0, 5),
         performanceSignal,
         anomalies,
@@ -131,9 +147,12 @@ export function extractMetaAdsInsights(data: MetaAdsInsightInput): ExtractedInsi
 
     // Handle error/info states
     if (data.error || data.info) {
+        // Distinguish Auth/API Error from Empty Info
+        const isError = !!data.error;
         return {
             source: 'MetaAds',
             period: data.period || 'Unknown',
+            fetchStatus: isError ? 'FAILED' : 'SUCCESS_NO_DATA',
             keyFindings: [data.info || data.error || 'Unable to retrieve Meta Ads data'],
             performanceSignal: 'unknown',
             anomalies: [],
@@ -148,6 +167,21 @@ export function extractMetaAdsInsights(data: MetaAdsInsightInput): ExtractedInsi
     const spend = parseFloat(metrics.spend) || 0;
     const impressions = parseInt(metrics.impressions) || 0;
     const clicks = parseInt(metrics.clicks) || 0;
+
+    // Check for Zero Data
+    if (spend === 0 && impressions === 0) {
+        return {
+            source: 'MetaAds',
+            period: data.period || 'Unknown',
+            fetchStatus: 'SUCCESS_NO_DATA',
+            keyFindings: ['Meta Ads connected, but no spend/impressions recorded'],
+            performanceSignal: 'unknown',
+            anomalies: [],
+            recommendations: ['Check campaign status', 'Verify date range'],
+            dataQuality: 'unavailable'
+        };
+    }
+
     const ctr = parseFloat(metrics.ctr) || (impressions > 0 ? (clicks / impressions) * 100 : 0);
     const cpc = parseFloat(metrics.cpc) || (clicks > 0 ? spend / clicks : 0);
     const cpm = parseFloat(metrics.cpm) || (impressions > 0 ? (spend / impressions) * 1000 : 0);
@@ -229,7 +263,8 @@ export function extractMetaAdsInsights(data: MetaAdsInsightInput): ExtractedInsi
 
     return {
         source: 'MetaAds',
-        period: data.period,
+        period: data.period || 'Unknown',
+        fetchStatus: 'SUCCESS_WITH_DATA',
         keyFindings: keyFindings.slice(0, 5),
         performanceSignal,
         anomalies,
@@ -246,21 +281,32 @@ export function formatInsightsForLLM(insights: ExtractedInsights): string {
     const lines: string[] = [];
 
     lines.push(`\n\n[${insights.source} INSIGHTS - ${insights.period}]`);
+    lines.push(`Status: ${insights.fetchStatus}`);
     lines.push(`Performance Signal: ${insights.performanceSignal.toUpperCase()}`);
-    lines.push(`Data Quality: ${insights.dataQuality}`);
 
+    if (insights.fetchStatus === 'SUCCESS_NO_DATA') {
+        lines.push(`NOTE: Account connected but NO DATA AVAILABLE. Do not infer performance.`);
+        return lines.join('\n');
+    }
+
+    if (insights.fetchStatus === 'FAILED') {
+        lines.push(`NOTE: Data fetch failed.`);
+        return lines.join('\n');
+    }
+
+    // REHYDRATION: Pass raw findings without truncation
     if (insights.keyFindings.length > 0) {
-        lines.push(`\nKey Findings:`);
+        lines.push(`\nKey Findings (Detailed):`);
         insights.keyFindings.forEach(f => lines.push(`• ${f}`));
     }
 
     if (insights.anomalies.length > 0) {
-        lines.push(`\nAnomalies Detected:`);
+        lines.push(`\nAnomalies & Deviations:`);
         insights.anomalies.forEach(a => lines.push(`⚠ ${a}`));
     }
 
     if (insights.recommendations.length > 0) {
-        lines.push(`\nSuggested Focus:`);
+        lines.push(`\nStrategic Implications:`);
         insights.recommendations.forEach(r => lines.push(`→ ${r}`));
     }
 

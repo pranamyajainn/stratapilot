@@ -45,11 +45,13 @@ router.get('/auth/google/callback', async (req, res) => {
 
         await ga4Service.handleAuthCallback(code, userId);
 
+        const appUrl = process.env.APP_URL || 'http://localhost:5173';
         // Redirect back to frontend (Dashboard)
-        res.redirect('http://localhost:5173/?ga4=success');
+        res.redirect(`${appUrl}/?ga4=success`);
     } catch (error: any) {
         console.error('OAuth Callback Error:', error);
-        res.redirect(`http://localhost:5173/?ga4=error&message=${encodeURIComponent(error.message)}`);
+        const appUrl = process.env.APP_URL || 'http://localhost:5173';
+        res.redirect(`${appUrl}/?ga4=error&message=${encodeURIComponent(error.message)}`);
     }
 });
 

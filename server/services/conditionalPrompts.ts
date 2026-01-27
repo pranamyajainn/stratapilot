@@ -49,8 +49,8 @@ ${ctx.competitiveContext ? `## COMPETITIVE CONTEXT\n${ctx.competitiveContext}` :
   (Use hedged language: "likely", "suggests", "typical")
 
 **BRAND STRATEGY WINDOW:**
-Generate 10 cards based on INFERRED intent from text.
-Mark confidence as "low" for visual-dependent cards (Sensorial, Distinctive Assets).
+Generate an array of EXACTLY 10 cards based on INFERRED intent from text.
+Do not omit any cards. If evidence is weak, mark content as "Inferred based on category norms".
 Return: { "brandStrategyWindow": [array of 10 cards] }
 
 **BRAND ARCHETYPE:**
@@ -92,18 +92,20 @@ ${ctx.textContext}
 ${ctx.competitiveContext ? `## COMPETITIVE CONTEXT\n${ctx.competitiveContext}` : ''}
 
 **BRAND STRATEGY WINDOW:**
-Generate ONLY these 5 positioning-focused cards:
-1. Brand Purpose (from stated mission/values)
-2. Rational Promise (from stated functional benefits)
-3. Emotional Promise (from stated emotional benefits)
-4. Reason to Believe (from stated proof points)
-5. Strategic Role (from stated market position)
+Generate an array of EXACTLY 10 cards.
+1. Brand Purpose
+2. Rational Promise
+3. Emotional Promise
+4. Sensorial Promise
+5. Reason to Believe
+6. Brand Personality
+7. Distinctive Assets
+8. Memory Structure
+9. Strategic Role
+10. Value Proposition
 
-Return as: { "brandStrategyWindow": [array of 5 cards] }
-
-**BRAND STRATEGY WINDOW:**
-Generate ALL 10 cards.
-For visual cards (Sensorial, Assets), infer "likely" attributes based on category norms.
+For visual cards (Sensorial, Assets, Memory), infer "likely" attributes based on category norms if specific visual evidence is missing.
+NEVER return fewer than 10 items.
 Return: { "brandStrategyWindow": [array of 10 cards] }
 
 **BRAND ARCHETYPE:**
@@ -146,19 +148,20 @@ ${ctx.textContext}
 "${ctx.analysisLabel}"
 
 **BRAND STRATEGY WINDOW:**
-Generate ONLY visual-dependent cards (6 cards):
-1. Sensorial Promise (colors, imagery, aesthetic mood from visuals)
-2. Emotional Promise (inferred from visual narrative, expressions, scene)
-3. Distinctive Assets (visible unique elements: layout, composition, motifs)
-4. Memory Structure (memorable visual hooks: colors, symbols, patterns)
-5. Visual Hierarchy (how message is prioritized visually)
-6. Brand Linkage (logo placement, size, frequency)
+Generate an array of EXACTLY 10 cards.
+1. Brand Purpose
+2. Rational Promise
+3. Emotional Promise
+4. Sensorial Promise
+5. Reason to Believe
+6. Brand Personality
+7. Distinctive Assets
+8. Memory Structure
+9. Strategic Role
+10. Value Proposition
 
-Return as: { "brandStrategyWindow": [array of 6 cards] }
-
-**BRAND STRATEGY WINDOW:**
-Generate ALL 10 cards.
-For brand-conceptual cards (Purpose, Role), infer from visual narrative/semiotics.
+For brand-conceptual cards (Purpose, Role, Values), infer from visual narrative/semiotics.
+NEVER return fewer than 10 items.
 Return: { "brandStrategyWindow": [array of 10 cards] }
 
 **BRAND ARCHETYPE:**

@@ -35,28 +35,28 @@ const ROUTING_MATRIX: Record<TaskIntent, Record<ComplexityLevel, RoutingRule>> =
     // Creative and narrative generation → Llama 3.3
     ideation: {
         low: {
-            models: { primary: 'llama-3.1-8b-instant', fallback: 'gemma2-9b-it' },
+            models: { primary: 'llama-3.1-8b-instant', fallback: 'llama-3.1-8b-instant' },
             reasoning: 'Simple ideation handled by fast model',
         },
         medium: {
-            models: { primary: 'llama-3.3-70b-versatile', fallback: 'mistral-saba-24b' },
-            reasoning: 'Llama 3.3 excels at creative generation and human preference alignment',
+            models: { primary: 'llama-3.3-70b-versatile', fallback: 'llama-3.1-8b-instant' },
+            reasoning: 'Llama 3.3 excels at creative generation',
         },
         high: {
             models: { primary: 'llama-3.3-70b-versatile', fallback: 'qwen/qwen3-32b' },
-            reasoning: 'Complex creative tasks require Llama 3.3 full capability',
+            reasoning: 'Complex creative tasks require Llama 3.3',
         },
     },
 
     // Summarization → Qwen3
     summarization: {
         low: {
-            models: { primary: 'llama-3.1-8b-instant', fallback: 'gemma2-9b-it' },
+            models: { primary: 'llama-3.1-8b-instant', fallback: 'llama-3.1-8b-instant' },
             reasoning: 'Simple summaries handled efficiently by fast model',
         },
         medium: {
             models: { primary: 'qwen/qwen3-32b', fallback: 'llama-3.3-70b-versatile' },
-            reasoning: 'Qwen3 has enhanced long-context understanding for summarization',
+            reasoning: 'Qwen3 has enhanced long-context understanding',
         },
         high: {
             models: { primary: 'qwen/qwen3-32b', fallback: 'llama-3.3-70b-versatile' },
@@ -64,67 +64,67 @@ const ROUTING_MATRIX: Record<TaskIntent, Record<ComplexityLevel, RoutingRule>> =
         },
     },
 
-    // Analysis → Llama 3.3 for narrative, DeepSeek only if highly structured
+    // Analysis → Llama 3.3
     analysis: {
         low: {
-            models: { primary: 'llama-3.1-8b-instant', fallback: 'gemma2-9b-it' },
+            models: { primary: 'llama-3.1-8b-instant', fallback: 'llama-3.1-8b-instant' },
             reasoning: 'Basic analysis delegated to fast model',
         },
         medium: {
-            models: { primary: 'llama-3.3-70b-versatile', fallback: 'mistral-saba-24b' },
-            reasoning: 'Llama 3.3 for general analysis with narrative elements',
+            models: { primary: 'llama-3.3-70b-versatile', fallback: 'llama-3.1-8b-instant' },
+            reasoning: 'Llama 3.3 for general analysis',
+        },
+        high: {
+            models: { primary: 'llama-3.3-70b-versatile', fallback: 'qwen/qwen3-32b' },
+            reasoning: 'Complex analysis uses Llama 3.3',
+        },
+    },
+
+    // Classification → Llama 3.1 8B
+    classification: {
+        low: {
+            models: { primary: 'llama-3.1-8b-instant', fallback: 'llama-3.1-8b-instant' },
+            reasoning: 'Classification optimized for speed',
+        },
+        medium: {
+            models: { primary: 'llama-3.1-8b-instant', fallback: 'llama-3.1-8b-instant' },
+            reasoning: 'Medium classification uses fast model',
         },
         high: {
             models: { primary: 'llama-3.3-70b-versatile', fallback: 'llama-3.1-8b-instant' },
-            reasoning: 'Complex analysis uses Llama 3.3; fast fallback for simpler components',
+            reasoning: 'Complex classification needs Llama 3.3',
         },
     },
 
-    // Classification → Llama 3.1 8B (fastest)
-    classification: {
-        low: {
-            models: { primary: 'llama-3.1-8b-instant', fallback: 'gemma2-9b-it' },
-            reasoning: 'Classification optimized for speed with Llama 3.1 8B',
-        },
-        medium: {
-            models: { primary: 'llama-3.1-8b-instant', fallback: 'mistral-saba-24b' },
-            reasoning: 'Even medium classification uses fast model',
-        },
-        high: {
-            models: { primary: 'mistral-saba-24b', fallback: 'llama-3.3-70b-versatile' },
-            reasoning: 'Complex classification may need more capability',
-        },
-    },
-
-    // Structured reasoning → DeepSeek
+    // Structured reasoning → Llama 3.3 (DeepSeek unavailable)
     reasoning: {
         low: {
-            models: { primary: 'llama-3.1-8b-instant', fallback: 'gemma2-9b-it' },
+            models: { primary: 'llama-3.1-8b-instant', fallback: 'llama-3.1-8b-instant' },
             reasoning: 'Simple logic handled by fast model',
         },
         medium: {
             models: { primary: 'llama-3.3-70b-versatile', fallback: 'llama-3.1-8b-instant' },
-            reasoning: 'Llama 3.3 for structured reasoning tasks (DeepSeek deprecated)',
+            reasoning: 'Llama 3.3 for structured reasoning',
         },
         high: {
-            models: { primary: 'deepseek-r1-distill-llama-70b', fallback: 'llama-3.3-70b-versatile' },
-            reasoning: 'Full DeepSeek R1 70B for complex reasoning; Llama fallback',
+            models: { primary: 'llama-3.3-70b-versatile', fallback: 'qwen/qwen3-32b' },
+            reasoning: 'Llama 3.3 replaces unavailable DeepSeek for complex reasoning',
         },
     },
 
-    // Critique and validation → DeepSeek
+    // Critique and validation → Llama 3.3 (DeepSeek unavailable)
     critique: {
         low: {
-            models: { primary: 'llama-3.1-8b-instant', fallback: 'gemma2-9b-it' },
+            models: { primary: 'llama-3.1-8b-instant', fallback: 'llama-3.1-8b-instant' },
             reasoning: 'Simple validation delegated to fast model',
         },
         medium: {
             models: { primary: 'llama-3.3-70b-versatile', fallback: 'llama-3.1-8b-instant' },
-            reasoning: 'Llama 3.3 for gap analysis and structured critique',
+            reasoning: 'Llama 3.3 for critique',
         },
         high: {
-            models: { primary: 'deepseek-r1-distill-llama-70b', fallback: 'llama-3.3-70b-versatile' },
-            reasoning: 'Full DeepSeek for rigorous validation; Llama fallback',
+            models: { primary: 'llama-3.3-70b-versatile', fallback: 'qwen/qwen3-32b' },
+            reasoning: 'Llama 3.3 replaces unavailable DeepSeek for rigorous validation',
         },
     },
 };
@@ -158,16 +158,7 @@ export class ModelRouter {
         let { primary, fallback } = rule.models;
         let reasoning = rule.reasoning;
 
-        if (priority === 'speed') {
-            // Downgrade to faster models
-            if (primary === 'deepseek-r1-distill-llama-70b') {
-                primary = 'llama-3.3-70b-versatile';
-                reasoning += ' (downgraded for speed)';
-            } else if (primary === 'llama-3.3-70b-versatile' && complexity !== 'high') {
-                primary = 'mistral-saba-24b';
-                reasoning += ' (downgraded for speed)';
-            }
-        } else if (priority === 'cost') {
+        if (priority === 'cost') {
             // Use cheapest viable option
             if (complexity === 'medium') {
                 primary = 'llama-3.1-8b-instant';
@@ -225,11 +216,8 @@ export class ModelRouter {
      * Get the critique model for two-pass reasoning
      */
     getCritiqueModel(complexity: ComplexityLevel): GroqModelId {
-        // Critique always uses DeepSeek for structured validation
-        if (complexity === 'high') {
-            return 'deepseek-r1-distill-llama-70b';
-        }
-        return 'llama-3.3-70b-versatile'; // Use Llama for critique (DeepSeek 32B deprecated)
+        // Critique uses Llama 3.3 due to DeepSeek unavailability
+        return 'llama-3.3-70b-versatile';
     }
 
     /**
@@ -239,11 +227,7 @@ export class ModelRouter {
         const names: Record<GroqModelId, string> = {
             'llama-3.3-70b-versatile': 'Llama 3.3 70B',
             'llama-3.1-8b-instant': 'Llama 3.1 8B',
-            'deepseek-r1-distill-llama-70b': 'DeepSeek R1 70B',
-            'deepseek-r1-distill-qwen-32b': 'DeepSeek R1 32B',
             'qwen/qwen3-32b': 'Qwen3 32B',
-            'gemma2-9b-it': 'Gemma2 9B',
-            'mistral-saba-24b': 'Mistral Saba 24B',
         };
         return names[modelId] || modelId;
     }

@@ -11,6 +11,7 @@ import { getModelRouter, ModelRouter } from './modelRouter.js';
 import { getProvenanceLogger, ProvenanceLogger } from './provenanceLogger.js';
 import type {
     TaskIntent,
+    ComplexityLevel,
     ClassificationResult,
     RouterDecision,
     LLMResponse,
@@ -70,6 +71,7 @@ export class LLMOrchestrator {
         userPrompt: string,
         options: {
             taskType?: TaskIntent;           // Override auto-classification
+            complexity?: ComplexityLevel;    // Override complexity
             priority?: 'speed' | 'quality' | 'cost';
             isClientFacing?: boolean;        // Forces two-pass
             isStrategyRequest?: boolean;     // Forces two-pass
@@ -85,7 +87,7 @@ export class LLMOrchestrator {
         if (options.taskType) {
             classification = {
                 intent: options.taskType,
-                complexity: 'medium',
+                complexity: options.complexity || 'medium',
                 estimatedTokens: Math.ceil(userPrompt.length / 4),
                 confidence: 1.0,
                 requiresTwoPass: options.isClientFacing || options.isStrategyRequest || false,
@@ -95,6 +97,10 @@ export class LLMOrchestrator {
                 isStrategyRequest: options.isStrategyRequest,
                 isClientFacing: options.isClientFacing,
             });
+            // Apply complexity override if provided even with auto-classification
+            if (options.complexity) {
+                classification.complexity = options.complexity;
+            }
         }
 
         console.log(`[LLMOrchestrator] Classified: ${classification.intent} (${classification.complexity}), two-pass: ${classification.requiresTwoPass}`);

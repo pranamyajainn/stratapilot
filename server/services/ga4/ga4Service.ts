@@ -333,6 +333,18 @@ export const getReport = async (
         }) || []
     };
 
+    // --- REQUIRED LOGGING FOR EMPTY-DATA AWARENESS ---
+    const rowCount = result.rows.length;
+    const status = rowCount > 0 ? 'SUCCESS_WITH_DATA' : 'SUCCESS_NO_DATA';
+    console.log(`[GA4] Fetch completed | propertyId=${propertyId} | status=${status} | rows=${rowCount}`);
+
+    // PERSIST STATUS
+    try {
+        db.updateConnectionStatus(userId, status);
+    } catch (e) {
+        console.warn('[GA4] Failed to persist connection status:', e);
+    }
+
     // Cache it (TTL = 1 hour for now, plan said 5-15 mins but 1 hour is safer for quotas)
     db.setCachedReport({
         id: uuidv4(),

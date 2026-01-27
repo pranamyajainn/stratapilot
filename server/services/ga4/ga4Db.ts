@@ -66,6 +66,19 @@ export function initGA4Database(): void {
         );
     `);
 
+    // 4. Schema Migration: Add fetch status columns if missing
+    try {
+        const tableInfo = db.pragma('table_info(ga4_connections)') as any[];
+        const hasStatus = tableInfo.some(col => col.name === 'last_fetch_status');
+        if (!hasStatus) {
+            console.log('[GA4 DB] Migrating schema: Adding fetch status columns...');
+            db.exec('ALTER TABLE ga4_connections ADD COLUMN last_fetch_status TEXT');
+            db.exec('ALTER TABLE ga4_connections ADD COLUMN last_fetch_at TEXT');
+        }
+    } catch (e) {
+        console.warn('[GA4 DB] Schema migration check failed:', e);
+    }
+
     console.log('[GA4 DB] Database initialized at', DB_PATH);
 }
 
@@ -83,6 +96,8 @@ export interface GA4Connection {
     currency: string;
     created_at: string;
     updated_at: string;
+    last_fetch_status?: string;
+    last_fetch_at?: string;
 }
 
 export interface GA4CacheEntry {
@@ -102,8 +117,8 @@ export interface GA4CacheEntry {
 export function upsertConnection(conn: GA4Connection): void {
     const stmt = db.prepare(`
         INSERT INTO ga4_connections 
-        (id, user_id, property_id, property_display_name, account_id, refresh_token_encrypted, scopes, revenue_allowed, timezone, currency, created_at, updated_at)
-        VALUES (@id, @user_id, @property_id, @property_display_name, @account_id, @refresh_token_encrypted, @scopes, @revenue_allowed, @timezone, @currency, @created_at, @updated_at)
+        (id, user_id, property_id, property_display_name, account_id, refresh_token_encrypted, scopes, revenue_allowed, timezone, currency, created_at, updated_at, last_fetch_status, last_fetch_at)
+        VALUES (@id, @user_id, @property_id, @property_display_name, @account_id, @refresh_token_encrypted, @scopes, @revenue_allowed, @timezone, @currency, @created_at, @updated_at, @last_fetch_status, @last_fetch_at)
         ON CONFLICT(user_id) DO UPDATE SET
             property_id = excluded.property_id,
             property_display_name = excluded.property_display_name,
@@ -114,11 +129,17 @@ export function upsertConnection(conn: GA4Connection): void {
             timezone = excluded.timezone,
             currency = excluded.currency,
             updated_at = excluded.updated_at
+            -- Not updating fetch status on upsert unless explicitly provided, usually explicit update is better?
+            -- Actually if we re-auth we might want to reset? Let's leave it as is or update if provided.
+            -- Logic below uses ...conn so if conn has it, it writes it (but ON CONFLICT clause needs to explicitly set it to update).
+            -- For now let's keep fetch status updates separate to avoid overwriting with null on re-auth.
     `);
     const params = {
         property_id: null,
         property_display_name: null,
         account_id: null,
+        last_fetch_status: null,
+        last_fetch_at: null,
         ...conn,
         revenue_allowed: conn.revenue_allowed ? 1 : 0
     };
@@ -154,6 +175,15 @@ export function updateConsent(userId: string, revenueAllowed: boolean): void {
         WHERE user_id = ?
     `);
     stmt.run(revenueAllowed ? 1 : 0, new Date().toISOString(), userId);
+}
+
+export function updateConnectionStatus(userId: string, status: string): void {
+    const stmt = db.prepare(`
+        UPDATE ga4_connections
+        SET last_fetch_status = ?, last_fetch_at = ?
+        WHERE user_id = ?
+    `);
+    stmt.run(status, new Date().toISOString(), userId);
 }
 
 // Cache

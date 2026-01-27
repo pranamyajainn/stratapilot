@@ -430,7 +430,7 @@ const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
           <Crown size={24} className="text-indigo-600" />
         </div>
         <div>
-          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BRAND ARCHETYPE MATRIX</h3>
+          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BRAND ARCHETYPE</h3>
         </div>
       </div>
 
@@ -503,7 +503,7 @@ const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[] }> = ({ cards }
           <LayoutGrid size={24} className="text-slate-700" />
         </div>
         <div>
-          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BRAND STRATEGY WINDOW</h3>
+          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BRAND STRATEGY</h3>
           <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">Decoding the master frame of brand intent.</p>
         </div>
       </div>
@@ -939,7 +939,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
         const imgData = canvas.toDataURL('image/png');
         const imgHeight = (canvas.height * pageWidth) / canvas.width;
         pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
-        addHeaderFooter(pdf, 1, "Performance Scorecard");
+        addHeaderFooter(pdf, 1, "SCORECARD");
       } else {
         console.warn("PDF Scorecard element not found!");
       }
@@ -953,7 +953,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
         const imgData = canvas.toDataURL('image/png');
         const imgHeight = (canvas.height * pageWidth) / canvas.width;
         pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
-        addHeaderFooter(pdf, 2, "ROI & Value Projection");
+        addHeaderFooter(pdf, 2, "ROI UPLIFT");
       }
 
       // --- PAGE 3-14: DIAGNOSTICS ---
@@ -968,7 +968,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
 
           // Fit to page (contain) if too tall, but intended to be A4 exact
           pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
-          addHeaderFooter(pdf, 3 + i, `Metric ${i + 1} of ${diagnostics.length}`);
+          addHeaderFooter(pdf, 3 + i, `DIAGNOSTICS - Metric ${i + 1}`);
         }
       }
 
@@ -1068,7 +1068,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
         {/* TAB 1: HOLISTIC SCORECARD */}
         {(activeTab === "holistic-scorecard" || isPdfMode) && (
           <div className="space-y-6">
-            <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">HOLISTIC PERFORMANCE SCORECARD</h4></div>
+            <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">SCORECARD</h4></div>
             <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl border border-slate-100 grid grid-cols-1 lg:grid-cols-12">
               <div className="lg:col-span-8 p-8 flex flex-col items-center justify-center relative">
                 <div className="w-full h-[400px]">
@@ -1111,7 +1111,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
         {/* TAB 3: EXECUTIVE SUMMARY */}
         {activeTab === "executive-summary" && (
           <div className="space-y-6">
-            <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">EXECUTIVE DIAGNOSTIC SUMMARY</h4></div>
+            <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">EXECUTIVE SUMMARY</h4></div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {diagnostics.map((item, idx) => (
                 <ExecutiveRecommendationCard key={idx} item={item} index={idx} />
@@ -1123,7 +1123,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
         {/* TAB 4: DIAGNOSTIC SUMMARY */}
         {activeTab === "diagnostic-summary" && (
           <div className="space-y-6">
-            <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">DETAILED DIAGNOSTIC BREAKDOWN</h4></div>
+            <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">DIAGNOSTICS</h4></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {diagnostics.map((item, idx) => (
                 <DiagnosticCard key={idx} item={item} onUpdate={(updates) => handleUpdateDiagnostic(idx, updates)} />
@@ -1151,7 +1151,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
         {/* TAB 8: ROI UPLIFT */}
         {activeTab === "roi-uplift" && (
           <div className="space-y-6">
-            <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">VALUE UNLOCKING & ROI PROJECTION</h4></div>
+            <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">ROI UPLIFT</h4></div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               <CRICard label="Clear" value={getDiagScore(6)} definition="Message understood instantly." science="Processing fluency." />
               <CRICard label="Captivating" value={getDiagScore(0)} definition="Holds attention >3s." science="Orienting reflex." />
@@ -1211,7 +1211,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
             {/* PAGE 1: SCORECARD */}
             <div id="pdf-scorecard" className="p-8 bg-white min-h-[1100px] flex flex-col justify-center">
               <div className="bg-slate-900 text-white p-4 rounded-full text-center shadow-md mb-8 w-full">
-                <h4 className="text-sm font-black uppercase tracking-[0.3em]">HOLISTIC PERFORMANCE SCORECARD</h4>
+                <h4 className="text-sm font-black uppercase tracking-[0.3em]">SCORECARD</h4>
               </div>
               <div className="flex-grow flex items-center justify-center">
                 <ResponsiveContainer width="100%" height={600}>
@@ -1234,7 +1234,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
             {/* PAGE 2: ROI */}
             <div id="pdf-roi" className="p-8 bg-white min-h-[1100px] flex flex-col justify-center">
               <div className="bg-slate-900 text-white p-4 rounded-full text-center shadow-md mb-12 w-full">
-                <h4 className="text-sm font-black uppercase tracking-[0.3em]">ROI & VALUE PROJECTION</h4>
+                <h4 className="text-sm font-black uppercase tracking-[0.3em]">ROI UPLIFT</h4>
               </div>
               <div className="grid grid-cols-2 gap-8 mb-12">
                 <ValueUnlockingCard title="Hook Rate" icon={Eye} current={hookCur} potential={hookPot} unit="%" definition="Attention capture" science="Salience" />

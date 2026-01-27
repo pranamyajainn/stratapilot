@@ -9,6 +9,7 @@ import { TechLayerLoader } from '../components/TechLayerLoader';
 import { GA4PropertyPicker } from '../components/analytics/GA4PropertyPicker';
 import { GA4Dashboard } from '../components/analytics/GA4Dashboard';
 import { ga4Service, GA4Connection } from '../src/services/ga4';
+import { metaService, MetaConnection } from '../src/services/meta';
 
 export const Dashboard: React.FC = () => {
     const [file, setFile] = useState<File | null>(null);
@@ -30,45 +31,59 @@ Finally, success will be measured not just by leads generated, but by the 'quali
     const [processingStep, setProcessingStep] = useState(0);
     const [activeVoiceField, setActiveVoiceField] = useState<'context' | 'query' | null>(null);
     const [auditCounter, setAuditCounter] = useState(1);
-    const [ga4Connected, setGa4Connected] = useState(false);
-    const [metaConnected, setMetaConnected] = useState(false);
+
+    // STATE SOURCE OF TRUTH: Backend Connection Objects
+    const [ga4ConnectionData, setGa4ConnectionData] = useState<GA4Connection | null>(null);
+    const [metaConnectionData, setMetaConnectionData] = useState<MetaConnection | null>(null);
+
+    // Derived state (optional, or just use object existence)
+    const ga4Connected = !!ga4ConnectionData;
+    const metaConnected = metaConnectionData?.isConnected || false;
+
     const [activeModal, setActiveModal] = useState<IntegrationType | null>(null);
     const [googleToken, setGoogleToken] = useState<string | null>(null);
     const [metaToken, setMetaToken] = useState<string | null>(null);
     const [gaPropertyId, setGaPropertyId] = useState<string | null>(null);
-    const [ga4ConnectionData, setGa4ConnectionData] = useState<GA4Connection | null>(null);
 
     // Initial load and callback handling
     useEffect(() => {
-        const initGA = async () => {
-            // Check URL for GA4 success
-            const urlParams = new URLSearchParams(window.location.search);
-            const ga4Success = urlParams.get('ga4');
-
-            if (ga4Success === 'success') {
-                // Clear URL param
-                window.history.replaceState({}, document.title, window.location.pathname);
-                setGa4Connected(true);
-            }
-
-            // Check if we are already connected (backend session or persisted)
-            // Or just check status if we think we might be connected
+        const checkConnections = async () => {
+            // 1. GA4
             try {
-                const conn = await ga4Service.getConnectionStatus();
-                if (conn) {
-                    setGa4Connected(true);
-                    setGa4ConnectionData(conn);
-                    if (conn.property_id) {
-                        setGaPropertyId(conn.property_id);
+                // Check URL for GA4 success param
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('ga4') === 'success') {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+
+                const gaConn = await ga4Service.getConnectionStatus();
+                if (gaConn) {
+                    setGa4ConnectionData(gaConn);
+                    if (gaConn.property_id) {
+                        setGaPropertyId(gaConn.property_id);
                     }
+                } else {
+                    setGa4ConnectionData(null);
                 }
             } catch (e) {
                 console.error("Failed to check GA4 status", e);
             }
+
+            // 2. Meta
+            try {
+                const metaConn = await metaService.getConnectionStatus();
+                if (metaConn) {
+                    setMetaConnectionData(metaConn);
+                } else {
+                    setMetaConnectionData(null);
+                }
+            } catch (e) {
+                console.error("Failed to check Meta status", e);
+            }
         };
 
-        initGA();
-    }, []);
+        checkConnections();
+    }, []); // Run ONCE on mount
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const recognitionRef = useRef<any>(null);
@@ -393,6 +408,16 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                                                 {ga4Connected ? (
                                                     <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 mt-1 animate-in fade-in slide-in-from-left-2">
                                                         <CheckCircle2 size={12} /> Connected
+                                                        {ga4ConnectionData?.last_fetch_status === 'SUCCESS_NO_DATA' && (
+                                                            <span className="ml-1 text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                                                (No data yet)
+                                                            </span>
+                                                        )}
+                                                        {ga4ConnectionData?.last_fetch_status === 'FAILED' && (
+                                                            <span className="ml-1 text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                                                                (Sync Failed)
+                                                            </span>
+                                                        )}
                                                     </span>
                                                 ) : (
                                                     <span className="text-[10px] font-medium text-indigo-600 flex items-center gap-1 mt-1"> Connect <ArrowRight size={10} /> </span>
@@ -412,6 +437,16 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                                                 {metaConnected ? (
                                                     <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 mt-1 animate-in fade-in slide-in-from-left-2">
                                                         <CheckCircle2 size={12} /> Connected
+                                                        {metaConnectionData?.aggregateStatus === 'SUCCESS_NO_DATA' && (
+                                                            <span className="ml-1 text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                                                (No data yet)
+                                                            </span>
+                                                        )}
+                                                        {metaConnectionData?.aggregateStatus === 'FAILED' && (
+                                                            <span className="ml-1 text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                                                                (Sync Failed)
+                                                            </span>
+                                                        )}
                                                     </span>
                                                 ) : (
                                                     <span className="text-[10px] font-medium text-indigo-600 flex items-center gap-1 mt-1"> Connect <ArrowRight size={10} /> </span>
@@ -443,7 +478,6 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                                         <GA4Dashboard
                                             connection={ga4ConnectionData}
                                             onDisconnect={() => {
-                                                setGa4Connected(false);
                                                 setGaPropertyId(null);
                                                 setGa4ConnectionData(null);
                                             }}
@@ -634,11 +668,13 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                     onClose={() => setActiveModal(null)}
                     onSuccess={(token: string, extraId?: string) => {
                         if (activeModal === 'GA4') {
-                            setGa4Connected(true);
+                            // Redirect flow usually handles this, but if reached:
+                            ga4Service.getConnectionStatus().then(conn => setGa4ConnectionData(conn));
                             setGoogleToken(token);
                             if (extraId) setGaPropertyId(extraId);
                         } else {
-                            setMetaConnected(true);
+                            // Refresh Meta status immediately
+                            metaService.getConnectionStatus().then(conn => setMetaConnectionData(conn));
                             setMetaToken(token);
                         }
                     }}

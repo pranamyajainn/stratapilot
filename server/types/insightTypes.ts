@@ -28,11 +28,14 @@ export interface MetaAdsInsightInput {
 // OUTPUT TYPES (Extracted Insights)
 // =====================================================
 
+export type FetchStatus = 'SUCCESS_WITH_DATA' | 'SUCCESS_NO_DATA' | 'FAILED';
+
 export type PerformanceSignal = 'strong' | 'moderate' | 'weak' | 'unknown';
 
 export interface ExtractedInsights {
     source: 'GA4' | 'MetaAds';
     period: string;
+    fetchStatus: FetchStatus;        // New field for explicit status
     keyFindings: string[];           // 3-5 bullet points
     performanceSignal: PerformanceSignal;
     anomalies: string[];             // Unusual patterns detected

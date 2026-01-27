@@ -20,6 +20,8 @@ export interface GA4Connection {
     revenue_allowed: boolean;
     timezone: string;
     currency: string;
+    last_fetch_status?: 'SUCCESS_WITH_DATA' | 'SUCCESS_NO_DATA' | 'FAILED';
+    last_fetch_at?: string;
 }
 
 export const ga4Service = {

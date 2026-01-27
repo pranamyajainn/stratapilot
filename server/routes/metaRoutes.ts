@@ -188,14 +188,15 @@ router.get('/meta/sync/runs/:id', (req, res) => {
     res.json({ success: true, data: row });
 });
 
-// DEBUG: Check token status
-router.get('/meta/debug/token', async (req, res) => {
-    // In prod, protect this route!
+// Status Endpoint
+router.get('/auth/meta/status', (req, res) => {
     const userId = 'default_user';
     const db = getMetaDb();
-    const row = db.prepare('SELECT access_token, token_expires_at FROM authorized_users WHERE user_id = ?').get(userId) as any;
+    const row = db.prepare('SELECT * FROM authorized_users WHERE user_id = ?').get(userId) as any;
 
-    if (!row) return res.status(404).json({ error: 'No token found' });
+    if (!row) {
+        return res.json({ hasToken: false });
+    }
 
     const now = Math.floor(Date.now() / 1000);
     const isValid = row.token_expires_at ? row.token_expires_at > now : true;
@@ -206,6 +207,59 @@ router.get('/meta/debug/token', async (req, res) => {
         isValid,
         expiresAt: row.token_expires_at ? new Date(row.token_expires_at * 1000).toISOString() : 'Never',
         daysRemaining: `${daysRemaining} days`
+    });
+});
+
+// GET /meta/context - Single Source of Truth for Frontend
+router.get('/meta/context', (req, res) => {
+    const userId = 'default_user';
+    const db = getMetaDb();
+
+    // 1. Check Auth
+    const tokenRow = db.prepare('SELECT access_token FROM authorized_users WHERE user_id = ?').get(userId) as any;
+    const isConnected = !!tokenRow?.access_token;
+
+    if (!isConnected) {
+        return res.json({
+            connection: {
+                isConnected: false,
+                accounts: []
+            }
+        });
+    }
+
+    // 2. Get Accounts & Status
+    const accounts = db.prepare(`
+        SELECT id, account_id, name, last_fetch_status, last_fetch_at 
+        FROM ad_accounts 
+        WHERE linked_by_user_id = ?
+    `).all(userId);
+
+    // 3. Determine Aggregate Status
+    // If any account has SUCCESS_WITH_DATA -> SUCCESS_WITH_DATA
+    // Else if any has SUCCESS_NO_DATA -> SUCCESS_NO_DATA
+    // Else -> UNKNOWN/FAILED
+
+    // Actually, let's just return the accounts and let frontend decide, 
+    // OR return a summary 'last_fetch_status' for the connection badge.
+
+    // Let's pick the "best" status.
+    let aggregateStatus = 'FAILED';
+    if (accounts.some((a: any) => a.last_fetch_status === 'SUCCESS_WITH_DATA')) {
+        aggregateStatus = 'SUCCESS_WITH_DATA';
+    } else if (accounts.some((a: any) => a.last_fetch_status === 'SUCCESS_NO_DATA')) {
+        aggregateStatus = 'SUCCESS_NO_DATA';
+    } else if (accounts.length > 0) {
+        // Connected but no fetch yet
+        aggregateStatus = 'PENDING';
+    }
+
+    res.json({
+        connection: {
+            isConnected: true,
+            aggregateStatus,
+            accounts
+        }
     });
 });
 

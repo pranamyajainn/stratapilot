@@ -44,11 +44,7 @@ export interface ClassificationResult {
 export type GroqModelId =
     | 'llama-3.3-70b-versatile'      // Creative, narratives, general purpose
     | 'llama-3.1-8b-instant'         // Fast classification, simple tasks
-    | 'deepseek-r1-distill-llama-70b' // Structured reasoning, critique
-    | 'deepseek-r1-distill-qwen-32b'  // Smaller reasoning fallback
-    | 'qwen/qwen3-32b'               // Summarization, long-context
-    | 'gemma2-9b-it'                 // Lightweight fallback
-    | 'mistral-saba-24b';            // Efficient general purpose
+    | 'qwen/qwen3-32b';              // Summarization, long-context
 
 /**
  * Model capability profile
@@ -72,7 +68,7 @@ export const MODEL_REGISTRY: Record<GroqModelId, ModelProfile> = {
         displayName: 'Llama 3.3 70B',
         contextWindow: 128000,
         costClass: 'medium',
-        bestFor: ['ideation', 'analysis'],
+        bestFor: ['ideation', 'analysis', 'reasoning', 'critique'],
         tokensPerMinute: 6000,
         requestsPerDay: 14400,
     },
@@ -85,24 +81,6 @@ export const MODEL_REGISTRY: Record<GroqModelId, ModelProfile> = {
         tokensPerMinute: 6000,
         requestsPerDay: 14400,
     },
-    'deepseek-r1-distill-llama-70b': {
-        id: 'deepseek-r1-distill-llama-70b',
-        displayName: 'DeepSeek R1 Distill 70B',
-        contextWindow: 64000,
-        costClass: 'high',
-        bestFor: ['reasoning', 'critique'],
-        tokensPerMinute: 6000,
-        requestsPerDay: 1000,
-    },
-    'deepseek-r1-distill-qwen-32b': {
-        id: 'deepseek-r1-distill-qwen-32b',
-        displayName: 'DeepSeek R1 Distill 32B',
-        contextWindow: 64000,
-        costClass: 'medium',
-        bestFor: ['reasoning'],
-        tokensPerMinute: 6000,
-        requestsPerDay: 1000,
-    },
     'qwen/qwen3-32b': {
         id: 'qwen/qwen3-32b',
         displayName: 'Qwen3 32B',
@@ -111,24 +89,6 @@ export const MODEL_REGISTRY: Record<GroqModelId, ModelProfile> = {
         bestFor: ['summarization'],
         tokensPerMinute: 6000,
         requestsPerDay: 1000,
-    },
-    'gemma2-9b-it': {
-        id: 'gemma2-9b-it',
-        displayName: 'Gemma2 9B',
-        contextWindow: 8000,
-        costClass: 'low',
-        bestFor: ['classification'],
-        tokensPerMinute: 6000,
-        requestsPerDay: 14400,
-    },
-    'mistral-saba-24b': {
-        id: 'mistral-saba-24b',
-        displayName: 'Mistral Saba 24B',
-        contextWindow: 32000,
-        costClass: 'low',
-        bestFor: ['classification', 'summarization'],
-        tokensPerMinute: 6000,
-        requestsPerDay: 14400,
     },
 };
 

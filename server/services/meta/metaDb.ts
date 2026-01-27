@@ -193,6 +193,18 @@ export function initMetaDatabase(): void {
         );
         CREATE INDEX IF NOT EXISTS idx_sync_runs_account ON sync_runs(account_id, started_at DESC);
     `);
+    // Migration: Add fetch status to ad_accounts
+    try {
+        const tableInfo = db.pragma('table_info(ad_accounts)') as any[];
+        const hasStatus = tableInfo.some(col => col.name === 'last_fetch_status');
+        if (!hasStatus) {
+            console.log('[META DB] Migrating schema: Adding fetch status columns...');
+            db.exec('ALTER TABLE ad_accounts ADD COLUMN last_fetch_status TEXT');
+            db.exec('ALTER TABLE ad_accounts ADD COLUMN last_fetch_at TEXT');
+        }
+    } catch (e) {
+        console.warn('[META DB] Schema migration check failed:', e);
+    }
 }
 
 export function getMetaDb(): Database.Database {
@@ -200,4 +212,16 @@ export function getMetaDb(): Database.Database {
         throw new Error('Meta Database not initialized. Call initMetaDatabase() first.');
     }
     return db;
+}
+
+export function updateAccountFetchStatus(accountId: string, status: string): void {
+    if (!db) return;
+    const stmt = db.prepare(`
+        UPDATE ad_accounts
+        SET last_fetch_status = ?, last_fetch_at = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE account_id = ?
+    `);
+    // Note: account_id in table is the numeric String id (e.g. "123"). 
+    // Usually code passes numeric ID. 
+    stmt.run(status, new Date().toISOString(), accountId);
 }

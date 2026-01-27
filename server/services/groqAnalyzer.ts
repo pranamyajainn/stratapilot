@@ -57,11 +57,24 @@ Before finalizing a diagnostic, ask: "Could this apply to a different ad?"
 
 ---
 
+## VALIDATION PROTOCOL: DUAL EVALUATION
+You must evaluate the creative on TWO axes:
+1.  **Execution Quality** (Is it well-made?)
+2.  **Strategic Alignment** (Does it fit the User Context?)
+
+IF visual evidence contradicts the User Context (e.g. "Targeting Gen Z" but visuals are "Corporate Stock Footage"):
+-   **Message Relevance** score must be PENALIZED (< 60).
+-   **Overall Persuasion** score must be PENALIZED.
+-   **Commentary** must explicitly flag the misalignment: "Visual style appeals to [Observed Audience] which mismatches the target [User Goal]."
+
+---
+
 ## 6. DATA SYNTHESIS
 If the User Context contains **Performance Data** (e.g., CTR, CPC, Spend):
-- Use these signals to validate your visual diagnostics.
-- Example: If Context says "High CTR", your "Immediate Attention" score should likely be higher.
-- Example: If Context says "High CPC", suggest audience/targeting issues in commentary.
+- Use these signals to CALIBRATE your scores.
+- High CTR (+1.5%) -> "Immediate Attention" score should be boosted.
+- Low CTR (<0.5%) -> "Immediate Attention" score should be capped at 60.
+- High CPC -> "Message Relevance" may be the issue.
 
 ---
 
@@ -401,7 +414,9 @@ Each diagnostic must have: metric, score, benchmark, rubricTier, subInsights (5 
             ANALYSIS_SYSTEM_PROMPT,
             prompt,
             {
-                taskType: 'analysis',
+                taskType: 'reasoning', // Use DeepSeek for constraint reasoning
+                complexity: 'high',    // FORCE DeepSeek usage via router rules
+                priority: 'quality',
                 isClientFacing: true,
                 responseFormat: 'json',
                 temperature: 0.3,

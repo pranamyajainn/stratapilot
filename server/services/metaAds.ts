@@ -3,6 +3,7 @@ import axios from 'axios';
 const META_APP_ID = process.env.META_APP_ID;
 const META_APP_SECRET = process.env.META_APP_SECRET;
 const META_REDIRECT_URI = process.env.META_REDIRECT_URI || 'http://localhost:3000/api/auth/meta/callback';
+import { updateAccountFetchStatus } from './meta/metaDb.js';
 
 export const getMetaAuthUrl = () => {
     const scopes = ['ads_read', 'read_insights']; // Permissions needed
@@ -56,11 +57,23 @@ export const fetchMetaAdsData = async (accessToken: string) => {
             }
         });
 
+        const metrics = insightsRes.data.data?.[0] || {};
+        const hasData = Object.keys(metrics).length > 0;
+        const status = hasData ? 'SUCCESS_WITH_DATA' : 'SUCCESS_NO_DATA';
+
+        console.log(`[META] Fetch completed | accountId=${accountId} | status=${status}`);
+
+        try {
+            updateAccountFetchStatus(accountId, status);
+        } catch (e) {
+            console.warn('[META] Failed to persist status:', e);
+        }
+
         return {
             source: 'Meta Ads',
             account: accountName,
             period: 'Last 30 Days',
-            metrics: insightsRes.data.data?.[0] || {}
+            metrics: metrics
         };
 
     } catch (error: any) {
