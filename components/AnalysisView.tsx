@@ -10,9 +10,18 @@ import {
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import ErrorBoundary from './ErrorBoundary';
+import { StrategyView } from './StrategyView';
+
+// Helper for consistency
+const EditorialBadge: React.FC = () => (
+  <span className="text-[8px] font-black text-amber-500 uppercase tracking-[0.2em] bg-amber-50 px-2 py-0.5 rounded border border-amber-100 flex items-center gap-1 w-fit">
+    <Edit2 size={8} /> Human Edit
+  </span>
+);
 
 interface AnalysisViewProps {
   data: AnalysisResult;
+  onUpdateData: (data: AnalysisResult) => void;
   onGenerateStrategy: () => void;
   isStrategizing: boolean;
   activeMode: string;
@@ -251,28 +260,58 @@ const KeyDeterminants: React.FC<{ driver: DiagnosticItem, detractor: DiagnosticI
   );
 };
 
-const ExecutiveRecommendationCard: React.FC<{ item: DiagnosticItem, index: number }> = ({ item, index }) => {
+const ExecutiveRecommendationCard: React.FC<{ item: DiagnosticItem, index: number, onUpdate: (u: Partial<DiagnosticItem>) => void }> = ({ item, index, onUpdate }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editCommentary, setEditCommentary] = useState(item.commentary);
+  const [editRec, setEditRec] = useState(item.recommendation);
+
+  const handleSave = () => {
+    onUpdate({ commentary: editCommentary, recommendation: editRec, isHumanEdited: true });
+    setIsEditing(false);
+  };
+
   return (
-    <div className="bg-white rounded-[28px] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.03)] p-7 flex flex-col h-full relative overflow-hidden group">
-      <div className="flex items-center gap-4 mb-6 relative z-10">
-        <div className="w-9 h-9 bg-[#1a1f2e] text-white rounded-lg flex items-center justify-center font-black text-sm shadow-lg">
-          {index + 1}
+    <div className="bg-white rounded-[28px] border border-slate-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.03)] p-7 flex flex-col h-full relative overflow-hidden group hover:shadow-lg transition-all">
+      <div className="flex items-center gap-4 mb-6 relative z-10 justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-9 h-9 bg-[#1a1f2e] text-white rounded-lg flex items-center justify-center font-black text-sm shadow-lg">
+            {index + 1}
+          </div>
+          <h4 className="text-base font-black text-slate-900 leading-tight tracking-tight">
+            {item.metric}
+          </h4>
         </div>
-        <h4 className="text-base font-black text-slate-900 leading-tight tracking-tight">
-          {item.metric}
-        </h4>
+        {!isEditing ? (
+          <button onClick={() => setIsEditing(true)} className="text-slate-300 hover:text-indigo-600 transition-colors"><Pencil size={14} /></button>
+        ) : (
+          <div className="flex gap-2">
+            <button onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+            <button onClick={handleSave} className="text-emerald-500 hover:text-emerald-600"><Check size={14} /></button>
+          </div>
+        )}
       </div>
       <div className="space-y-6 flex-grow relative z-10">
         <div className="space-y-2">
-          <h5 className="text-[9px] font-black text-rose-500 uppercase tracking-[0.25em]">THE ISSUE</h5>
-          <p className="text-[12px] text-slate-600 leading-relaxed font-medium">{item.commentary}</p>
+          <div className="flex justify-between items-center">
+            <h5 className="text-[9px] font-black text-rose-500 uppercase tracking-[0.25em]">THE ISSUE</h5>
+            {item.isHumanEdited && <EditorialBadge />}
+          </div>
+          {isEditing ? (
+            <textarea value={editCommentary} onChange={e => setEditCommentary(e.target.value)} className="w-full text-[12px] p-2 border rounded-lg bg-slate-50 focus:ring-2 focus:ring-indigo-100 outline-none" rows={3} />
+          ) : (
+            <p className="text-[12px] text-slate-600 leading-relaxed font-medium">{item.commentary}</p>
+          )}
         </div>
         <div className="bg-[#f0fdf4] border border-[#dcfce7] rounded-xl p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-2 text-[#166534]">
             <CheckCircle size={14} strokeWidth={3} />
-            <h5 className="text-[9px] font-black uppercase tracking-[0.25em]">THE FIX</h5>
+            <h5 className="text-[9px] font-black uppercase tracking-[0.2em]">THE FIX</h5>
           </div>
-          <p className="text-[12px] text-[#166534]/90 leading-relaxed font-semibold">{item.recommendation}</p>
+          {isEditing ? (
+            <textarea value={editRec} onChange={e => setEditRec(e.target.value)} className="w-full text-[12px] p-2 border rounded-lg bg-white focus:ring-2 focus:ring-emerald-100 outline-none" rows={3} />
+          ) : (
+            <p className="text-[12px] text-[#166534]/90 leading-relaxed font-semibold">{item.recommendation}</p>
+          )}
         </div>
       </div>
     </div>
@@ -401,9 +440,19 @@ const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Parti
   );
 };
 
-const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
+const BrandArchetypeMatrix: React.FC<{ detail: BrandArchetypeDetail, onUpdate: (d: BrandArchetypeDetail) => void }> = ({ detail, onUpdate }) => {
   // REMOVED DEFENSIVE GUARD - ALWAYS RENDER INFERRED/PARTIAL DATA
   if (!detail) return null;
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editArchetype, setEditArchetype] = useState(detail.archetype);
+  const [editReasoning, setEditReasoning] = useState(detail.reasoning);
+  const [editQuote, setEditQuote] = useState(detail.quote);
+
+  const handleSave = () => {
+    onUpdate({ ...detail, archetype: editArchetype, reasoning: editReasoning, quote: editQuote, isHumanEdited: true });
+    setIsEditing(false);
+  };
 
   const archetypes = [
     { name: "The Innocent", value: "SAFETY", icon: Sun },
@@ -420,36 +469,44 @@ const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
     { name: "The Creator", value: "INNOVATION", icon: Palette },
   ];
 
-  const detected = detail.archetype || "Inferred Archetype (Low Confidence)";
+  const detected = (isEditing ? editArchetype : detail.archetype) || "Inferred Archetype (Low Confidence)";
 
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <div className="p-3 bg-white shadow-md rounded-xl border border-slate-100">
-          <Crown size={24} className="text-indigo-600" />
+      <div className="flex items-center gap-4 justify-between">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-white shadow-md rounded-xl border border-slate-100">
+            <Crown size={24} className="text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BRAND ARCHETYPE</h3>
+          </div>
         </div>
-        <div>
-          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">BRAND ARCHETYPE</h3>
-        </div>
+        {detail.isHumanEdited && <EditorialBadge />}
+        <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className={`p-2 rounded-full transition-colors ${isEditing ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-slate-50 text-slate-400 hover:text-indigo-600'}`}>
+          {isEditing ? <Check size={20} /> : <Pencil size={20} />}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-white rounded-[32px] p-8 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] border border-slate-100">
         <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
           {archetypes.map((arch, i) => {
             const isDetected = detected.toLowerCase().includes(arch.name.toLowerCase().replace('the ', ''));
+            const isSelected = isEditing && editArchetype === arch.name;
             return (
               <div
                 key={i}
-                className={`p-6 rounded-[24px] border-2 flex flex-col items-center justify-center text-center transition-all duration-300 h-32 ${isDetected
+                onClick={isEditing ? () => setEditArchetype(arch.name) : undefined}
+                className={`p-6 rounded-[24px] border-2 flex flex-col items-center justify-center text-center transition-all duration-300 h-32 ${isDetected || isSelected
                   ? 'border-amber-500 bg-amber-50/20 shadow-lg scale-105 relative z-10'
                   : 'border-slate-100 bg-slate-50/50 opacity-60 grayscale-[0.2]'
-                  }`}
+                  } ${isEditing ? 'cursor-pointer hover:border-indigo-300' : ''}`}
               >
-                <arch.icon size={24} className={isDetected ? 'text-amber-600' : 'text-slate-400'} />
-                <h4 className={`text-[12px] font-black mt-3 leading-tight ${isDetected ? 'text-slate-800' : 'text-slate-500'}`}>{arch.name}</h4>
-                <p className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${isDetected ? 'text-amber-600' : 'text-slate-400'}`}>{arch.value}</p>
-                {isDetected && (
+                <arch.icon size={24} className={isDetected || isSelected ? 'text-amber-600' : 'text-slate-400'} />
+                <h4 className={`text-[12px] font-black mt-3 leading-tight ${isDetected || isSelected ? 'text-slate-800' : 'text-slate-500'}`}>{arch.name}</h4>
+                <p className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${isDetected || isSelected ? 'text-amber-600' : 'text-slate-400'}`}>{arch.value}</p>
+                {(isDetected || isSelected) && (
                   <div className="absolute -top-2 -right-2 bg-amber-500 text-white p-1 rounded-full shadow-md">
                     <Check size={10} strokeWidth={4} />
                   </div>
@@ -462,16 +519,24 @@ const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
         <div className="lg:col-span-4 bg-slate-50/80 rounded-[28px] p-8 border border-slate-100 flex flex-col h-full">
           <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">DETECTED ARCHETYPE</h5>
           <h4 className="text-4xl font-serif font-bold text-amber-800 mb-2">{detected}</h4>
-          <p className="text-[14px] font-medium text-slate-500 italic mb-10 leading-relaxed">"{detail.quote}"</p>
+          {isEditing ? (
+            <textarea value={editQuote} onChange={(e) => setEditQuote(e.target.value)} className="w-full text-[14px] font-medium text-slate-600 italic mb-10 p-2 border rounded-lg" rows={3} placeholder="Motto or Quote" />
+          ) : (
+            <p className="text-[14px] font-medium text-slate-500 italic mb-10 leading-relaxed">"{detail.quote}"</p>
+          )}
 
           <div className="bg-white rounded-2xl p-6 border border-slate-200 flex-grow shadow-sm">
             <div className="flex items-center gap-2 mb-4 text-indigo-600">
               <Bot size={16} />
               <h5 className="text-[11px] font-black uppercase tracking-[0.15em]">AI REASONING</h5>
             </div>
-            <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
-              {detail.reasoning}
-            </p>
+            {isEditing ? (
+              <textarea value={editReasoning} onChange={(e) => setEditReasoning(e.target.value)} className="w-full text-[12px] text-slate-600 p-2 border rounded-lg h-[150px]" />
+            ) : (
+              <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
+                {detail.reasoning}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -479,13 +544,39 @@ const BrandArchetypeMatrix: React.FC<{ detail: any }> = ({ detail }) => {
   );
 };
 
-const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[] }> = ({ cards }) => {
+const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[], onUpdate: (c: BrandStrategyCard[]) => void }> = ({ cards, onUpdate }) => {
   // REMOVED DEFENSIVE GUARD - RENDER AVAILABLE CARDS
   const safeCards = cards || [];
+  const [editingCardIndex, setEditingCardIndex] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editSubtitle, setEditSubtitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+
+  const handleStartEdit = (idx: number, card: BrandStrategyCard) => {
+    setEditingCardIndex(idx);
+    setEditTitle(card.title);
+    setEditSubtitle(card.subtitle);
+    setEditContent(card.content);
+  };
+
+  const handleSave = () => {
+    if (editingCardIndex === null) return;
+    const newCards = [...safeCards];
+    newCards[editingCardIndex] = {
+      ...newCards[editingCardIndex],
+      title: editTitle,
+      subtitle: editSubtitle,
+      content: editContent,
+      isHumanEdited: true
+    };
+    onUpdate(newCards);
+    setEditingCardIndex(null);
+  };
 
   const iconMap: Record<string, any> = {
     "RATIONAL PROMISE": { icon: Brain, color: "text-blue-500", bg: "bg-blue-50", border: "border-blue-100" },
     "EMOTIONAL PROMISE": { icon: Heart, color: "text-rose-500", bg: "bg-rose-50", border: "border-rose-100" },
+    // ... (rest of iconMap is mapped by key lookup, no change needed)
     "SENSORIAL PROMISE": { icon: Ear, color: "text-purple-500", bg: "bg-purple-50", border: "border-purple-100" },
     "REASON TO BELIEVE": { icon: CheckCircle, color: "text-emerald-500", bg: "bg-emerald-50", border: "border-emerald-100" },
     "BRAND PURPOSE": { icon: Globe, color: "text-indigo-500", bg: "bg-indigo-50", border: "border-indigo-100" },
@@ -509,20 +600,39 @@ const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[] }> = ({ cards }
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {safeCards.length > 0 ? safeCards.map((card, idx) => {
+          const isEditing = editingCardIndex === idx;
           const theme = iconMap[card.title.toUpperCase()] || { icon: Sparkles, color: "text-slate-500", bg: "bg-slate-50", border: "border-slate-100" };
           return (
             <div key={idx} className={`bg-white rounded-[24px] border ${theme.border} p-6 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.03)] flex flex-col h-full relative overflow-hidden group hover:-translate-y-1 transition-all duration-300`}>
+              {card.isHumanEdited && <div className="absolute top-2 right-2"><EditorialBadge /></div>}
               <div className="flex justify-between items-start mb-6">
                 <div className={`w-10 h-10 ${theme.bg} rounded-xl flex items-center justify-center ${theme.color} shadow-sm group-hover:scale-110 transition-transform`}>
                   <theme.icon size={20} />
                 </div>
-                <span className="text-[10px] font-black text-slate-300 tracking-widest">#{idx + 1}</span>
+                {!isEditing && (
+                  <button onClick={() => handleStartEdit(idx, card)} className="text-slate-300 hover:text-indigo-600"><Pencil size={12} /></button>
+                )}
               </div>
-              <h4 className="text-[13px] font-black text-slate-900 tracking-tighter uppercase leading-tight mb-0.5">{card.title}</h4>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4 leading-none">{card.subtitle}</p>
-              <div className="flex-grow">
-                <p className="text-[12px] text-slate-600 leading-relaxed font-medium">{card.content}</p>
-              </div>
+
+              {isEditing ? (
+                <div className="space-y-2">
+                  <input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full text-[13px] font-black border-b border-slate-200" placeholder="Title" />
+                  <input value={editSubtitle} onChange={e => setEditSubtitle(e.target.value)} className="w-full text-[10px] font-bold text-slate-400 border-b border-slate-200" placeholder="Subtitle" />
+                  <textarea value={editContent} onChange={e => setEditContent(e.target.value)} className="w-full text-[12px] h-[100px] border border-slate-200 rounded p-1" />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setEditingCardIndex(null)} className="text-[10px] text-slate-400">Cancel</button>
+                    <button onClick={handleSave} className="text-[10px] text-emerald-600 font-bold">Save</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h4 className="text-[13px] font-black text-slate-900 tracking-tighter uppercase leading-tight mb-0.5">{card.title}</h4>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4 leading-none">{card.subtitle}</p>
+                  <div className="flex-grow">
+                    <p className="text-[12px] text-slate-600 leading-relaxed font-medium">{card.content}</p>
+                  </div>
+                </>
+              )}
             </div>
           );
         }) : (
@@ -827,127 +937,83 @@ export const PdfDiagnosticPage: React.FC<{ item: DiagnosticItem, index: number }
   );
 };
 
-export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStrategy, isStrategizing, activeMode }) => {
-  const [localData, setLocalData] = useState(data);
+export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, onGenerateStrategy, isStrategizing, activeMode }) => {
+  const [activeTab, setActiveTab] = useState("scorecard");
+  const [isPdfMode, setIsPdfMode] = useState(false);
 
-  useEffect(() => {
-    setLocalData(data);
-  }, [data]);
+  const diagnostics = data.adDiagnostics || [];
 
   const handleUpdateDiagnostic = (index: number, updates: Partial<DiagnosticItem>) => {
-    if (!localData.adDiagnostics) return;
-    const newList = [...localData.adDiagnostics];
+    if (!data.adDiagnostics) return;
+    const newList = [...data.adDiagnostics];
     if (newList[index]) {
       newList[index] = { ...newList[index], ...updates };
-      setLocalData({ ...localData, adDiagnostics: newList });
+      onUpdateData({ ...data, adDiagnostics: newList });
     }
   };
 
-
-  // SAFEGUARD: Ensure adDiagnostics exists
-  const diagnostics = localData.adDiagnostics || [];
-
-  // ADAPTATION: Generate chart data dynamically from available diagnostics
-  // This allows the chart to adapt to variable length data (truth-first)
-  // instead of forcing 12 fixed axes with zero values.
-  const chartData = diagnostics.map((item) => ({
-    subject: item.metric,
-    A: normalizeScore(item.score),
-    B: normalizeScore(item.benchmark || 65)
+  // Calculations for Scorecard
+  const chartData = diagnostics.map(d => ({
+    subject: d.metric.substring(0, 15) + (d.metric.length > 15 ? '...' : ''),
+    fullSubject: d.metric,
+    A: normalizeScore(d.score),
+    B: normalizeScore(d.benchmark || 65),
+    fullMark: 100
   }));
 
-  // Fallback for empty state to prevent chart collapse visually
-  if (chartData.length === 0) {
-    ["Outcome", "Recall", "Brand", "Emotion", "Engagement", "Clarity"].forEach(label => {
-      chartData.push({ subject: label, A: 0, B: 0 });
-    });
-  }
-
-  const avgScore = diagnostics.length > 0
-    ? Math.round(diagnostics.reduce((acc, curr) => acc + normalizeScore(curr.score), 0) / diagnostics.length)
-    : 0;
-
+  const avgScore = Math.round(diagnostics.reduce((acc, curr) => acc + normalizeScore(curr.score), 0) / (diagnostics.length || 1));
   const avgTier = getRubricTier(avgScore);
-  const tierStyles = getTierStyles(avgTier);
 
-  const sortedDiagnostics = [...diagnostics].sort((a, b) => b.score - a.score);
-  // SAFEGUARD: Handle empty diagnostics array
-  const driver = sortedDiagnostics.length > 0 ? sortedDiagnostics[0] : null;
-  const detractor = sortedDiagnostics.length > 0 ? sortedDiagnostics[sortedDiagnostics.length - 1] : null;
+  const tabs = [
+    { id: "scorecard", label: "Scorecard" },
+    ...diagnostics.map((d, i) => ({ id: `diagnostic-${i}`, label: `${i + 1}. ${d.metric}` })),
+    { id: "brand-strategy", label: "Brand Strategy" },
+    { id: "brand-archetype", label: "Brand Archetype" },
+    { id: "roi-uplift", label: "ROI Uplift" },
+    ...(data.campaignStrategy ? [{ id: "strategy-plan", label: "Strategy Plan" }] : [])
+  ];
 
-  // Helper for safe index access with bounds checking
-  const getDiagScore = (idx: number) => (diagnostics[idx] ? normalizeScore(diagnostics[idx].score) : 0);
+  const handleNext = () => {
+    const currIdx = tabs.findIndex(t => t.id === activeTab);
+    if (currIdx < tabs.length - 1) setActiveTab(tabs[currIdx + 1].id);
+  };
 
-  const hookCur = getDiagScore(0) / 10;
-  const hookPot = Math.min(9.8, hookCur * 1.18);
-  const clarCur = getDiagScore(6) / 10;
-  const clarPot = Math.min(9.6, clarCur * 1.15);
-  const visCur = getDiagScore(9) / 10;
-  const visPot = Math.min(9.5, visCur * 1.12);
-  const vtrCur = getDiagScore(10);
-  const vtrPot = Math.min(88, vtrCur * 1.10);
-  const ctrCur = (getDiagScore(4) / 100) * 1.6;
-  const ctrPot = Math.min(3.2, ctrCur * 1.25);
-  const dropCur = 100 - getDiagScore(0);
-  const dropPot = Math.max(8.5, dropCur * 0.85);
+  const handlePrev = () => {
+    const currIdx = tabs.findIndex(t => t.id === activeTab);
+    if (currIdx > 0) setActiveTab(tabs[currIdx - 1].id);
+  };
 
-  // Guard against NaN from division by zero
-  const safeDiv = (num: number, denom: number) => (denom === 0 ? 0 : (num / denom));
-
-  const hookUpliftPct = safeDiv((hookPot - hookCur), hookCur) * 100;
-  const clarUpliftPct = safeDiv((clarPot - clarCur), clarCur) * 100;
-  const visUpliftPct = safeDiv((visPot - visCur), visCur) * 100;
-  const vtrUpliftPct = safeDiv((vtrPot - vtrCur), vtrCur) * 100;
-  const ctrUpliftPct = safeDiv((ctrPot - ctrCur), ctrCur) * 100;
-
-  const rawRoi = (hookUpliftPct * 0.20) + (clarUpliftPct * 0.20) + (visUpliftPct * 0.15) + (vtrUpliftPct * 0.15) + (ctrUpliftPct * 0.30);
-  const minTarget = 10.0;
-  const maxTarget = 22.0;
-  const constrainedRoi = Math.max(minTarget, Math.min(maxTarget, 10 + (Math.max(0, rawRoi - 10) / 20) * 12));
-
-  /* TABBED INTERFACE STATE */
-  const [activeTab, setActiveTab] = useState("holistic-scorecard");
-  const [isPdfMode, setIsPdfMode] = useState(false);
-  const topRef = useRef<HTMLDivElement>(null);
-
-  /* PDF CAPTURE LOGIC (Multi-Page, Deterministic) */
   const handleDownloadPdf = async () => {
-    // 1. Enter PDF Mode to render specialized layout
     setIsPdfMode(true);
-
-    // 2. Wait for DOM to stabilize
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Wait for render
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
-      // Allow time for DOM to render the PDF overlay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
 
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      const pageWidth = 210;
-      const pageHeight = 297;
+      const addHeaderFooter = (doc: jsPDF, pageNum: number, title: string) => {
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text("StrataPilot AI Analysis", 10, 10);
+        doc.text(title, pageWidth - 10, 10, { align: 'right' });
+        doc.text(`Page ${pageNum}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+      };
 
       // --- PAGE 1: SCORECARD ---
       const scorecardEl = document.getElementById('pdf-scorecard');
       if (scorecardEl) {
-        console.log("Capturing Scorecard...");
         const canvas = await html2canvas(scorecardEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
         const imgData = canvas.toDataURL('image/png');
         const imgHeight = (canvas.height * pageWidth) / canvas.width;
         pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
         addHeaderFooter(pdf, 1, "SCORECARD");
-      } else {
-        console.warn("PDF Scorecard element not found!");
       }
 
-      // --- PAGE 2: ROI & VALUE ---
+      // --- PAGE 2: ROI ---
       const roiEl = document.getElementById('pdf-roi');
       if (roiEl) {
-        console.log("Capturing ROI...");
         pdf.addPage();
         const canvas = await html2canvas(roiEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
         const imgData = canvas.toDataURL('image/png');
@@ -956,310 +1022,372 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
         addHeaderFooter(pdf, 2, "ROI UPLIFT");
       }
 
-      // --- PAGE 3-14: DIAGNOSTICS ---
+      // --- PAGE 3+: DIAGNOSTICS ---
       for (let i = 0; i < diagnostics.length; i++) {
         const diagEl = document.getElementById(`pdf-diagnostic-${i}`);
         if (diagEl) {
-          console.log(`Capturing Diagnostic ${i + 1}...`);
           pdf.addPage();
           const canvas = await html2canvas(diagEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
           const imgData = canvas.toDataURL('image/png');
           const imgHeight = (canvas.height * pageWidth) / canvas.width;
-
-          // Fit to page (contain) if too tall, but intended to be A4 exact
           pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
-          addHeaderFooter(pdf, 3 + i, `DIAGNOSTICS - Metric ${i + 1}`);
+          addHeaderFooter(pdf, 3 + i, `DIAGNOSTICS - ${diagnostics[i].metric}`);
         }
       }
 
-      pdf.save(`StrataPilot-Report-${new Date().toISOString().split('T')[0]}.pdf`);
+      let pageOffset = 3 + diagnostics.length;
 
+      // --- BRAND STRATEGY ---
+      const stratEl = document.getElementById('pdf-brand-strategy');
+      if (stratEl) {
+        pdf.addPage();
+        const canvas = await html2canvas(stratEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/png');
+        const imgHeight = (canvas.height * pageWidth) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
+        addHeaderFooter(pdf, pageOffset++, "BRAND STRATEGY");
+      }
+
+      // --- BRAND ARCHETYPE ---
+      const archEl = document.getElementById('pdf-brand-archetype');
+      if (archEl) {
+        pdf.addPage();
+        const canvas = await html2canvas(archEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/png');
+        const imgHeight = (canvas.height * pageWidth) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
+        addHeaderFooter(pdf, pageOffset++, "BRAND ARCHETYPE");
+      }
+
+      // --- STRATEGY PLAN ---
+      const planEl = document.getElementById('pdf-strategy-plan');
+      if (planEl) {
+        pdf.addPage();
+        const canvas = await html2canvas(planEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#1e293b' });
+        const imgData = canvas.toDataURL('image/png');
+        const imgHeight = (canvas.height * pageWidth) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
+        addHeaderFooter(pdf, pageOffset++, "STRATEGIC EXECUTION PLAN");
+      }
+
+      pdf.save(`StrataPilot-Report-${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
-      console.error("PDF Generation failed", err);
+      console.error("PDF Generation failed:", err);
       alert("Failed to generate PDF. Please try again.");
     } finally {
       setIsPdfMode(false);
     }
   };
 
-  const addHeaderFooter = (doc: jsPDF, pageNum: number, sectionTitle: string) => {
-    const width = doc.internal.pageSize.getWidth();
-    const height = doc.internal.pageSize.getHeight();
-
-    doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
-
-    // Header
-    doc.text("StrataPilot Diagnostic Report", 10, 8);
-    doc.text(sectionTitle, width - 10, 8, { align: 'right' });
-
-    // Footer
-    doc.text(`Generated ${new Date().toISOString()}`, 10, height - 8);
-    doc.text(`Page ${pageNum}`, width - 10, height - 8, { align: 'right' });
-  };
-
-  const tabs = [
-    { id: "holistic-scorecard", label: "Scorecard" },
-    { id: "key-determinants", label: "Key Determinants" },
-    { id: "executive-summary", label: "Executive Summary" },
-    { id: "diagnostic-summary", label: "Diagnostics" },
-    { id: "brand-strategy", label: "Brand Strategy" },
-    { id: "brand-archetype", label: "Brand Archetype" },
-    { id: "roi-uplift", label: "ROI Uplift" }
-  ];
-
-  /* NAVIGATION HELPERS */
-  const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId);
-    if (topRef.current) {
-      const offset = 100; // Account for sticky header
-      const elementPosition = topRef.current.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - offset;
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: "smooth"
-      });
-    }
-  };
-
-  const handleNext = () => {
-    const currentIndex = tabs.findIndex(t => t.id === activeTab);
-    if (currentIndex < tabs.length - 1) {
-      handleTabChange(tabs[currentIndex + 1].id);
-    }
-  };
-
-  const handlePrev = () => {
-    const currentIndex = tabs.findIndex(t => t.id === activeTab);
-    if (currentIndex > 0) {
-      handleTabChange(tabs[currentIndex - 1].id);
-    }
-  };
-
   return (
-    <div ref={topRef} className="space-y-8 pb-20 overflow-y-visible min-h-[800px]">
-      {/* TAB NAVIGATION BAR */}
-      <div className="sticky top-24 z-40 bg-white/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-100 p-2 mb-8 mx-auto max-w-5xl overflow-x-auto flex gap-1 custom-scrollbar">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => handleTabChange(tab.id)}
-            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0
-              ${activeTab === tab.id
-                ? 'bg-indigo-600 text-white shadow-md cursor-default'
-                : 'bg-transparent text-slate-500 hover:bg-slate-50 hover:text-indigo-600'
-              }`}
-          >
-            {tab.label}
+    <div className="min-h-screen bg-[#f8fafc] p-6 lg:p-10 font-sans text-slate-900 pb-32">
+      {/* HEADER & CONTROLS */}
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
+              <Scan size={20} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">Analysis Report</h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">AI-Calibrated Diagnostics</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={handleDownloadPdf} disabled={isPdfMode} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-indigo-600 transition-colors shadow-lg active:scale-95 disabled:opacity-50">
+            {isPdfMode ? <span className="animate-pulse">Generating PDF...</span> : <><FileDown size={16} /> Export Report</>}
           </button>
-        ))}
-        <div className="flex-grow"></div>
-        <button
-          onClick={handleDownloadPdf}
-          className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/10 ml-2"
-        >
-          <FileDown size={14} /> PDF
-        </button>
+        </div>
       </div>
 
-      {/* CONTENT AREA WITH ANIMATION */}
-      <div className={`animate-in fade-in slide-in-from-bottom-4 duration-500 ${isPdfMode ? 'space-y-12' : ''}`} key={activeTab}>
+      {/* NAVIGATION TABS */}
+      <div className="max-w-7xl mx-auto mb-8 overflow-x-auto pb-4 custom-scrollbar">
+        <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 w-fit">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {/* TAB 1: HOLISTIC SCORECARD */}
-        {(activeTab === "holistic-scorecard" || isPdfMode) && (
-          <div className="space-y-6">
-            <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">SCORECARD</h4></div>
-            <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl border border-slate-100 grid grid-cols-1 lg:grid-cols-12">
-              <div className="lg:col-span-8 p-8 flex flex-col items-center justify-center relative">
-                <div className="w-full h-[400px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
-                      <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 7, fontWeight: 900 }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                      <RechartsRadar name="Benchmark Score" dataKey="B" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" fill="transparent" />
-                      <RechartsRadar name="Your Score" dataKey="A" stroke="#4f46e5" strokeWidth={3} fill="#4f46e5" fillOpacity={0.15} />
-                      <Tooltip />
-                      <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '20px' }} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <div className="lg:col-span-4 bg-[#0a0f1d] p-12 flex flex-col items-center justify-center text-center text-white relative border-l border-white/5">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4 relative z-10">STRATAPILOT SCORE</h4>
-                <div className="text-[80px] font-black leading-none tracking-tighter mb-2 relative z-10 text-white drop-shadow-2xl">{avgScore}</div>
-                <div className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border ${tierStyles} mb-6 relative z-10 shadow-lg shadow-indigo-500/20`}>
-                  {avgTier}
-                </div>
-                <div className="w-12 h-1 bg-indigo-500/50 rounded-full mb-6 relative z-10"></div>
-                <div className="space-y-4 relative z-10 text-left">
-                  <h5 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Score Methodology</h5>
-                  <p className="text-[11px] text-slate-400 leading-relaxed font-medium text-center px-4">
-                    This holistic score is calculated by cross-referencing {diagnostics.length} fundamental creative vectors against a global benchmark engine of 12M+ high-performance campaign data points.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: KEY DETERMINANTS */}
-        {activeTab === "key-determinants" && (
-          <KeyDeterminants driver={driver || {} as DiagnosticItem} detractor={detractor || {} as DiagnosticItem} />
-        )}
-
-        {/* TAB 3: EXECUTIVE SUMMARY */}
-        {activeTab === "executive-summary" && (
-          <div className="space-y-6">
-            <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">EXECUTIVE SUMMARY</h4></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {diagnostics.map((item, idx) => (
-                <ExecutiveRecommendationCard key={idx} item={item} index={idx} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: DIAGNOSTIC SUMMARY */}
-        {activeTab === "diagnostic-summary" && (
-          <div className="space-y-6">
-            <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">DIAGNOSTICS</h4></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {diagnostics.map((item, idx) => (
-                <DiagnosticCard key={idx} item={item} onUpdate={(updates) => handleUpdateDiagnostic(idx, updates)} />
-              ))}
-            </div>
-          </div>
-        )}
-
-
-
-        {/* TAB 6: BRAND STRATEGY */}
-        {activeTab === "brand-strategy" && (
-          <ErrorBoundary>
-            <BrandStrategyWindow cards={localData.brandStrategyWindow} />
-          </ErrorBoundary>
-        )}
-
-        {/* TAB 7: BRAND ARCHETYPE */}
-        {activeTab === "brand-archetype" && (
-          <ErrorBoundary>
-            <BrandArchetypeMatrix detail={localData.brandArchetypeDetail} />
-          </ErrorBoundary>
-        )}
-
-        {/* TAB 8: ROI UPLIFT */}
-        {activeTab === "roi-uplift" && (
-          <div className="space-y-6">
-            <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">ROI UPLIFT</h4></div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <CRICard label="Clear" value={getDiagScore(6)} definition="Message understood instantly." science="Processing fluency." />
-              <CRICard label="Captivating" value={getDiagScore(0)} definition="Holds attention >3s." science="Orienting reflex." />
-              <CRICard label="Relevant" value={getDiagScore(5)} definition="Matches user intent." science="Self-reference effect." />
-              <CRICard label="Unique" value={getDiagScore(9)} definition="Distinct from competitors." science="Von Restorff effect." />
-              <CRICard label="Credible" value={getDiagScore(7)} definition="Trusts the claim." science="Source credibility theory." />
-              <CRICard label="Motivating" value={getDiagScore(3)} definition="Drives action." science="Goal gradient hypothesis." />
-            </div>
-
-            <div className="bg-gradient-to-br from-[#1e1b4b] to-[#312e81] rounded-[32px] p-8 shadow-2xl border border-indigo-900/50 relative overflow-hidden text-white">
-              <div className="flex items-center gap-4 mb-8 relative z-10">
-                <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-500/30 shadow-lg backdrop-blur-sm">
-                  <UpliftIcon size={28} />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black uppercase tracking-tighter text-white">Projected ROI Uplift</h3>
-                  <p className="text-[11px] font-medium text-indigo-200 uppercase tracking-widest mt-1">Based on calibrated diagnostic improvements</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
-                <ValueUnlockingCard title="Hook Rate (3s View)" icon={Eye} current={hookCur} potential={hookPot} unit="%" definition="Initial attention capture." science="Visual salience." />
-                <ValueUnlockingCard title="Message Clarity" icon={FileText} current={clarCur} potential={clarPot} unit="/10" definition="Comprehension speed." science="Fluency heuristic." />
-                <ValueUnlockingCard title="Visual Distinctiveness" icon={Diamond} current={visCur} potential={visPot} unit="/10" definition="Brand recognition." science="Distinctiveness bias." />
-                <ValueUnlockingCard title="Video Completion Rate" icon={PlayCircle} current={vtrCur} potential={vtrPot} unit="%" definition="Retention through narrative." science="Narrative transportation." />
-                <ValueUnlockingCard title="Click-Through Rate" icon={MousePointerClick} current={ctrCur} potential={ctrPot} unit="%" definition="Conversion intent." science="Action bias." />
-                <ValueUnlockingCard title="Bounce Rate (Exit)" icon={ZapOff} current={dropCur} potential={dropPot} unit="%" isNegative definition="Immediate rejection." science="Cognitive load." />
-              </div>
-
-              <div className="mt-8 pt-6 border-t border-indigo-500/30 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="bg-emerald-500 text-white px-3 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-emerald-900/50">
-                    +{((constrainedRoi - 10) / 10 * 100).toFixed(0)}% OPTIMIZATION
-                  </div>
-                  <p className="text-[10px] text-indigo-200 max-w-md leading-relaxed hidden md:block">
-                    Projected performance increase if all diagnostic recommendations are implemented.
-                    <span className="opacity-50 ml-1">(Confidence Interval: 85%)</span>
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest mb-0.5">ESTIMATED ROAS IMPACT</div>
-                  <div className="text-3xl font-black text-white tracking-tighter tabular-nums">
-                    {constrainedRoi.toFixed(1)}x
-                  </div>
-                </div>
-              </div>
-              <button onClick={onGenerateStrategy} disabled={isStrategizing || !!data.campaignStrategy} className="mt-8 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all transform hover:scale-105 flex items-center gap-2 relative z-10 disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center">
-                <Rocket size={16} /> {isStrategizing ? 'GENERATING...' : data.campaignStrategy ? 'STRATEGY ACTIVE' : 'GENERATE STRATEGY PLAN'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* PDF GENERATION CONTAINER (Off-screen capture layer) */}
-        {isPdfMode && (
-          <div className="fixed top-0 left-[-9999px] width-[210mm] z-[9999] bg-white pointer-events-none opacity-0">
-            {/* PAGE 1: SCORECARD */}
-            <div id="pdf-scorecard" className="p-8 bg-white min-h-[1100px] flex flex-col justify-center">
-              <div className="bg-slate-900 text-white p-4 rounded-full text-center shadow-md mb-8 w-full">
-                <h4 className="text-sm font-black uppercase tracking-[0.3em]">SCORECARD</h4>
-              </div>
-              <div className="flex-grow flex items-center justify-center">
-                <ResponsiveContainer width="100%" height={600}>
+      <div className="max-w-5xl mx-auto">
+        {/* TAB 1: SCORECARD */}
+        {activeTab === 'scorecard' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            <div className="bg-white rounded-[32px] p-8 shadow-xl border border-slate-100 flex flex-col items-center justify-center min-h-[500px]">
+              <div className="w-full h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
                   <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
                     <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
                     <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} />
                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                     <RechartsRadar name="Benchmark Score" dataKey="B" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" fill="transparent" />
                     <RechartsRadar name="Your Score" dataKey="A" stroke="#4f46e5" strokeWidth={3} fill="#4f46e5" fillOpacity={0.15} />
+                    <Tooltip />
                     <Legend />
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="text-center mt-8">
-                <h1 className="text-6xl font-black text-slate-900">{avgScore}</h1>
-                <div className="text-xl font-bold text-indigo-600 uppercase tracking-widest">{avgTier}</div>
+            </div>
+            <div className="space-y-6">
+              <div className="bg-white rounded-[32px] p-10 shadow-xl border border-slate-100 text-center">
+                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Overall Performance</h3>
+                <div className="text-8xl font-black text-slate-900 mb-2 tracking-tighter">{avgScore}</div>
+                <div className={`inline-block px-6 py-2 rounded-full text-sm font-black uppercase tracking-widest ${getTierStyles(avgTier)}`}>
+                  {avgTier} Tier
+                </div>
+              </div>
+              <div className="bg-indigo-900 rounded-[32px] p-8 shadow-xl text-white relative overflow-hidden">
+                <div className="relative z-10">
+                  <h3 className="text-lg font-bold mb-2">Executive Summary</h3>
+                  <p className="text-xs text-indigo-200 leading-relaxed mb-4">
+                    Analysis complete across {diagnostics.length} key dimensions.
+                    Optimization potential identified in {(diagnostics.filter(d => normalizeScore(d.score) < 60)).length} areas.
+                  </p>
+                </div>
               </div>
             </div>
-
-            {/* PAGE 2: ROI */}
-            <div id="pdf-roi" className="p-8 bg-white min-h-[1100px] flex flex-col justify-center">
-              <div className="bg-slate-900 text-white p-4 rounded-full text-center shadow-md mb-12 w-full">
-                <h4 className="text-sm font-black uppercase tracking-[0.3em]">ROI UPLIFT</h4>
-              </div>
-              <div className="grid grid-cols-2 gap-8 mb-12">
-                <ValueUnlockingCard title="Hook Rate" icon={Eye} current={hookCur} potential={hookPot} unit="%" definition="Attention capture" science="Salience" />
-                <ValueUnlockingCard title="Completion" icon={PlayCircle} current={vtrCur} potential={vtrPot} unit="%" definition="Retention" science="Narrative" />
-                <ValueUnlockingCard title="CTR" icon={MousePointerClick} current={ctrCur} potential={ctrPot} unit="%" definition="Conversion" science="Action Bias" />
-                <ValueUnlockingCard title="Bounce Rate" icon={ZapOff} current={dropCur} potential={dropPot} unit="%" isNegative definition="Rejection" science="Cognitive Load" />
-              </div>
-              <div className="bg-slate-900 text-white p-12 rounded-3xl text-center">
-                <h3 className="text-lg font-black uppercase tracking-widest text-indigo-400 mb-2">Projected ROAS Impact</h3>
-                <div className="text-8xl font-black text-white mb-6">{constrainedRoi.toFixed(1)}x</div>
-                <p className="text-slate-400 max-w-lg mx-auto">Based on implementation of all {diagnostics.length} strategic recommendations.</p>
-              </div>
-            </div>
-
-            {/* PAGE 3+: DIAGNOSTICS */}
-            {diagnostics.map((item, idx) => (
-              <PdfDiagnosticPage key={idx} item={item} index={idx} />
-            ))}
           </div>
         )}
 
-      </div>
+        {/* DIAGNOSTICS TABS */}
+        {activeTab.startsWith('diagnostic-') && (
+          (() => {
+            const idx = parseInt(activeTab.split('-')[1]);
+            const item = diagnostics[idx];
+            if (!item) return null;
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 h-[700px]">
+                <div className="lg:col-span-2 h-full">
+                  <ExecutiveRecommendationCard item={item} index={idx} onUpdate={updates => handleUpdateDiagnostic(idx, updates)} />
+                </div>
+                <div className="lg:col-span-3 h-full">
+                  <DiagnosticCard item={item} onUpdate={updates => handleUpdateDiagnostic(idx, updates)} />
+                </div>
+              </div>
+            );
+          })()
+        )}
+
+        {/* TAB 9: STRATEGY PLAN */}
+        {activeTab === 'strategy-plan' && data.campaignStrategy && (
+          <ErrorBoundary>
+            <StrategyView strategy={data.campaignStrategy} onUpdate={(s) => onUpdateData({ ...data, campaignStrategy: s })} />
+          </ErrorBoundary>
+        )}
+
+        {/* TAB 6: BRAND STRATEGY */}
+        {
+          activeTab === "brand-strategy" && (
+            <ErrorBoundary>
+              <BrandStrategyWindow cards={data.brandStrategyWindow || []} />
+            </ErrorBoundary>
+          )
+        }
+
+        {/* TAB 7: BRAND ARCHETYPE */}
+        {
+          activeTab === "brand-archetype" && (
+            <ErrorBoundary>
+              <BrandArchetypeMatrix detail={data.brandArchetypeDetail} />
+            </ErrorBoundary>
+          )
+        }
+
+        {/* TAB 8: ROI UPLIFT */}
+        {
+          activeTab === "roi-uplift" && (
+            <div className="space-y-6">
+              <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">ROI UPLIFT</h4></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <CRICard label="Clear" value={getDiagScore(6)} definition="Message understood instantly." science="Processing fluency." />
+                <CRICard label="Captivating" value={getDiagScore(0)} definition="Holds attention >3s." science="Orienting reflex." />
+                <CRICard label="Relevant" value={getDiagScore(5)} definition="Matches user intent." science="Self-reference effect." />
+                <CRICard label="Unique" value={getDiagScore(9)} definition="Distinct from competitors." science="Von Restorff effect." />
+                <CRICard label="Credible" value={getDiagScore(7)} definition="Trusts the claim." science="Source credibility theory." />
+                <CRICard label="Motivating" value={getDiagScore(3)} definition="Drives action." science="Goal gradient hypothesis." />
+              </div>
+
+              <div className="bg-gradient-to-br from-[#1e1b4b] to-[#312e81] rounded-[32px] p-8 shadow-2xl border border-indigo-900/50 relative overflow-hidden text-white group">
+                <div className="flex items-center gap-4 mb-8 relative z-10 justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-500/30 shadow-lg backdrop-blur-sm">
+                      <UpliftIcon size={28} />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black uppercase tracking-tighter text-white">Projected ROI Uplift</h3>
+                      {data.roiCommentary?.isHumanEdited && <div className="mt-1"><EditorialBadge /></div>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-8 relative z-10 space-y-2">
+                  {data.roiCommentary?.summary ? (
+                    <div className="relative group/edit">
+                      <p className="text-[11px] font-medium text-indigo-200 uppercase tracking-widest">{data.roiCommentary.summary}</p>
+                      <button
+                        onClick={() => {
+                          const newSummary = prompt("Edit ROI Summary:", data.roiCommentary?.summary || "Based on calibrated diagnostic improvements");
+                          if (newSummary !== null) {
+                            onUpdateData({ ...data, roiCommentary: { ...data.roiCommentary, summary: newSummary, isHumanEdited: true } as any });
+                          }
+                        }}
+                        className="absolute -right-6 top-0 opacity-0 group-hover/edit:opacity-100 text-indigo-300 hover:text-white transition-opacity"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative group/edit">
+                      <p className="text-[11px] font-medium text-indigo-200 uppercase tracking-widest">Based on calibrated diagnostic improvements</p>
+                      <button
+                        onClick={() => {
+                          const newSummary = prompt("Edit ROI Summary:", "Based on calibrated diagnostic improvements");
+                          if (newSummary !== null) {
+                            onUpdateData({ ...data, roiCommentary: { ...data.roiCommentary, summary: newSummary, isHumanEdited: true } as any });
+                          }
+                        }}
+                        className="absolute -right-6 top-0 opacity-0 group-hover/edit:opacity-100 text-indigo-300 hover:text-white transition-opacity"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
+                  <ValueUnlockingCard title="Hook Rate (3s View)" icon={Eye} current={hookCur} potential={hookPot} unit="%" definition="Initial attention capture." science="Visual salience." />
+                  <ValueUnlockingCard title="Message Clarity" icon={FileText} current={clarCur} potential={clarPot} unit="/10" definition="Comprehension speed." science="Fluency heuristic." />
+                  <ValueUnlockingCard title="Visual Distinctiveness" icon={Diamond} current={visCur} potential={visPot} unit="/10" definition="Brand recognition." science="Distinctiveness bias." />
+                  <ValueUnlockingCard title="Video Completion Rate" icon={PlayCircle} current={vtrCur} potential={vtrPot} unit="%" definition="Retention through narrative." science="Narrative transportation." />
+                  <ValueUnlockingCard title="Click-Through Rate" icon={MousePointerClick} current={ctrCur} potential={ctrPot} unit="%" definition="Conversion intent." science="Action bias." />
+                  <ValueUnlockingCard title="Bounce Rate (Exit)" icon={ZapOff} current={dropCur} potential={dropPot} unit="%" isNegative definition="Immediate rejection." science="Cognitive load." />
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-indigo-500/30 flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-emerald-500 text-white px-3 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-emerald-900/50">
+                      +{((constrainedRoi - 10) / 10 * 100).toFixed(0)}% OPTIMIZATION
+                    </div>
+                    <div className="relative group/edit block md:block">
+                      <p className="text-[10px] text-indigo-200 max-w-md leading-relaxed">
+                        {data.roiCommentary?.projectedImpact || "Projected performance increase if all diagnostic recommendations are implemented."}
+                        <span className="opacity-50 ml-1">(Confidence Interval: 85%)</span>
+                      </p>
+                      <button
+                        onClick={() => {
+                          const newImpact = prompt("Edit Projected Impact:", data.roiCommentary?.projectedImpact || "Projected performance increase if all diagnostic recommendations are implemented.");
+                          if (newImpact !== null) {
+                            onUpdateData({ ...data, roiCommentary: { ...data.roiCommentary, projectedImpact: newImpact, isHumanEdited: true } as any });
+                          }
+                        }}
+                        className="absolute -right-6 top-0 opacity-0 group-hover/edit:opacity-100 text-indigo-300 hover:text-white transition-opacity"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest mb-0.5">ESTIMATED ROAS IMPACT</div>
+                    <div className="text-3xl font-black text-white tracking-tighter tabular-nums">
+                      {constrainedRoi.toFixed(1)}x
+                    </div>
+                  </div>
+                </div>
+                <button onClick={onGenerateStrategy} disabled={isStrategizing || !!data.campaignStrategy} className="mt-8 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all transform hover:scale-105 flex items-center gap-2 relative z-10 disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center">
+                  <Rocket size={16} /> {isStrategizing ? 'GENERATING...' : data.campaignStrategy ? 'STRATEGY ACTIVE' : 'GENERATE STRATEGY PLAN'}
+                </button>
+              </div>
+            </div>
+          )
+        }
+
+        {/* PDF GENERATION CONTAINER (Off-screen capture layer) */}
+        {
+          isPdfMode && (
+            <div className="fixed top-0 left-[-9999px] width-[210mm] z-[9999] bg-white pointer-events-none opacity-0">
+              {/* PAGE 1: SCORECARD */}
+              <div id="pdf-scorecard" className="p-8 bg-white min-h-[1100px] flex flex-col justify-center">
+                <div className="bg-slate-900 text-white p-4 rounded-full text-center shadow-md mb-8 w-full">
+                  <h4 className="text-sm font-black uppercase tracking-[0.3em]">SCORECARD</h4>
+                </div>
+                <div className="flex-grow flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height={600}>
+                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
+                      <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                      <RechartsRadar name="Benchmark Score" dataKey="B" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" fill="transparent" />
+                      <RechartsRadar name="Your Score" dataKey="A" stroke="#4f46e5" strokeWidth={3} fill="#4f46e5" fillOpacity={0.15} />
+                      <Legend />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="text-center mt-8">
+                  <h1 className="text-6xl font-black text-slate-900">{avgScore}</h1>
+                  <div className="text-xl font-bold text-indigo-600 uppercase tracking-widest">{avgTier}</div>
+                </div>
+              </div>
+
+              {/* PAGE 2: ROI */}
+              <div id="pdf-roi" className="p-8 bg-white min-h-[1100px] flex flex-col justify-center">
+                <div className="bg-slate-900 text-white p-4 rounded-full text-center shadow-md mb-12 w-full">
+                  <h4 className="text-sm font-black uppercase tracking-[0.3em]">ROI UPLIFT</h4>
+                </div>
+                <div className="grid grid-cols-2 gap-8 mb-12">
+                  <ValueUnlockingCard title="Hook Rate" icon={Eye} current={hookCur} potential={hookPot} unit="%" definition="Attention capture" science="Salience" />
+                  <ValueUnlockingCard title="Completion" icon={PlayCircle} current={vtrCur} potential={vtrPot} unit="%" definition="Retention" science="Narrative" />
+                  <ValueUnlockingCard title="CTR" icon={MousePointerClick} current={ctrCur} potential={ctrPot} unit="%" definition="Conversion" science="Action Bias" />
+                  <ValueUnlockingCard title="Bounce Rate" icon={ZapOff} current={dropCur} potential={dropPot} unit="%" isNegative definition="Rejection" science="Cognitive Load" />
+                </div>
+                <div className="bg-slate-900 text-white p-12 rounded-3xl text-center">
+                  <h3 className="text-lg font-black uppercase tracking-widest text-indigo-400 mb-2">Projected ROAS Impact</h3>
+                  <div className="text-8xl font-black text-white mb-6">{constrainedRoi.toFixed(1)}x</div>
+                  <p className="text-slate-400 max-w-lg mx-auto">Based on implementation of all {diagnostics.length} strategic recommendations.</p>
+                </div>
+              </div>
+
+              {/* PAGE 3+: DIAGNOSTICS */}
+              {diagnostics.map((item, idx) => (
+                <PdfDiagnosticPage key={idx} item={item} index={idx} />
+              ))}
+
+              {/* PAGE 4: BRAND STRATEGY */}
+              {data.brandStrategyWindow && (
+                <div id="pdf-brand-strategy" className="p-8 bg-white min-h-[1100px] flex flex-col">
+                  <BrandStrategyWindow cards={data.brandStrategyWindow} onUpdate={() => { }} />
+                </div>
+              )}
+
+              {/* PAGE 5: BRAND ARCHETYPE */}
+              {data.brandArchetypeDetail && (
+                <div id="pdf-brand-archetype" className="p-8 bg-white min-h-[1100px] flex flex-col">
+                  <BrandArchetypeMatrix detail={data.brandArchetypeDetail} onUpdate={() => { }} />
+                </div>
+              )}
+
+              {/* PAGE 6: STRATEGY PLAN */}
+              {data.campaignStrategy && (
+                <div id="pdf-strategy-plan" className="p-8 bg-[#0f172a] min-h-[1100px] flex flex-col text-white">
+                  <StrategyView strategy={data.campaignStrategy} />
+                </div>
+              )}
+
+            </div>
+          )
+        }
+
+      </div >
 
       {/* FOOTER NAVIGATION BUTTONS */}
-      <div className="flex justify-between items-center pt-8 border-t border-slate-100 mt-8">
+      < div className="flex justify-between items-center pt-8 border-t border-slate-100 mt-8" >
         <button
           onClick={handlePrev}
           disabled={activeTab === tabs[0].id}
@@ -1292,8 +1420,8 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onGenerateStra
         >
           Next Section <ArrowRight size={16} />
         </button>
-      </div>
+      </div >
 
-    </div>
+    </div >
   );
 };

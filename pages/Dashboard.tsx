@@ -99,6 +99,28 @@ Finally, success will be measured not just by leads generated, but by the 'quali
         return () => clearInterval(interval);
     }, [loadingState]);
 
+    // HITL PERSISTENCE LAYER: Session-scoped Draft
+    useEffect(() => {
+        const savedDraft = localStorage.getItem('stratapilot_draft_v1');
+        if (savedDraft) {
+            try {
+                const parsed = JSON.parse(savedDraft);
+                if (parsed && parsed.adDiagnostics) {
+                    console.log("Restoring draft analysis session...");
+                    setResult(parsed);
+                }
+            } catch (e) {
+                console.error("Failed to restore draft:", e);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        if (result) {
+            localStorage.setItem('stratapilot_draft_v1', JSON.stringify(result));
+        }
+    }, [result]);
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             validateAndSetFile(e.target.files[0]);
@@ -610,8 +632,8 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                                 {sectionDividers.map((label, idx) => (<button key={idx} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[9px] font-bold text-slate-600 hover:bg-indigo-600 hover:border-indigo-500 hover:text-white hover:shadow-lg transition-all whitespace-nowrap"> {label} </button>))}
                             </div>
                         </div>
-                        <AnalysisView data={result} onGenerateStrategy={handleStrategy} isStrategizing={loadingState === 'strategizing'} activeMode={selectedPreset || "Balanced Analysis"} />
-                        {result.campaignStrategy && <StrategyView strategy={result.campaignStrategy} />}
+                        <AnalysisView data={result} onUpdateData={setResult} onGenerateStrategy={handleStrategy} isStrategizing={loadingState === 'strategizing'} activeMode={selectedPreset || "Balanced Analysis"} />
+                        {result.campaignStrategy && <StrategyView strategy={result.campaignStrategy} onUpdate={(s) => setResult({ ...result, campaignStrategy: s })} />}
                     </div>
                 )}
 

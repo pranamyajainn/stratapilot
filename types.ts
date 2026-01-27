@@ -80,6 +80,13 @@ export interface BrandStrategyCard {
   title: string;
   subtitle: string;
   content: string;
+  isHumanEdited?: boolean;
+}
+
+export interface RoiCommentary {
+  summary: string;
+  projectedImpact: string;
+  isHumanEdited?: boolean;
 }
 
 export interface RoiMetrics {
@@ -99,6 +106,7 @@ export interface BrandArchetypeDetail {
   quote: string;
   reasoning: string;
   confidence?: 'high' | 'moderate' | 'low';  // NEW: Confidence level for partial inferences
+  isHumanEdited?: boolean;
 }
 
 export interface ModelHealth {
@@ -128,6 +136,7 @@ export interface CampaignStrategy {
   timeline: string;
   budgetAllocation: string;
   successMetrics: string[];
+  isHumanEdited?: boolean;
 }
 
 export interface AnalysisResult {
@@ -142,6 +151,7 @@ export interface AnalysisResult {
   brandArchetypeDetail?: BrandArchetypeDetail;
   brandArchetypeUnavailable?: BrandArchetypeUnavailable;  // NEW: Explainability for missing archetype
   roiMetrics?: RoiMetrics;
+  roiCommentary?: RoiCommentary;
   modelHealth?: ModelHealth;
   validationSuite?: ValidationMetrics;
   campaignStrategy?: CampaignStrategy;
