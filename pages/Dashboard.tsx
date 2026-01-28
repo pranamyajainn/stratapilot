@@ -4,25 +4,307 @@ import { AnalysisResult, LoadingState } from '../types';
 import { analyzeCollateral, generateCampaignStrategy } from '../services/geminiService';
 import { AnalysisView } from '../components/AnalysisView';
 import { StrategyView } from '../components/StrategyView';
-import { ConnectionModal, IntegrationType } from '../components/ConnectionModal';
-import { TechLayerLoader } from '../components/TechLayerLoader';
-import { GA4PropertyPicker } from '../components/analytics/GA4PropertyPicker';
-import { GA4Dashboard } from '../components/analytics/GA4Dashboard';
-import { ga4Service, GA4Connection } from '../src/services/ga4';
-import { metaService, MetaConnection } from '../src/services/meta';
+import { PdfSystem, PdfSystemHandle } from '../components/pdf/PdfSystem';
+
+type IntegrationType = 'GA4' | 'Meta';
+
+interface ConnectionModalProps {
+    type: IntegrationType;
+    isOpen: boolean;
+    onClose: () => void;
+    onSuccess: () => void;
+}
+
+const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, onClose, onSuccess }) => {
+    const [propertyId, setPropertyId] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    if (!isOpen) return null;
+
+    const handleComplete = () => {
+        if (type === 'GA4' && !propertyId) {
+            alert("Please provide your GA4 Property ID");
+            return;
+        }
+        // WARNING: This is a simulation. No actual GA4/Meta connection is made.
+        setIsProcessing(true);
+        setTimeout(() => {
+            onSuccess();
+            onClose();
+            setIsProcessing(false);
+        }, 1500);
+    };
+
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        alert('Copied to clipboard!');
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${type === 'GA4' ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'}`}>
+                            <Plug size={18} />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-800">Connect {type === 'GA4' ? 'Google Analytics 4' : 'Meta Ads Manager'}</h3>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                        <X size={20} className="text-slate-400" />
+                    </button>
+                </div>
+
+                <div className="p-8 max-h-[80vh] overflow-y-auto">
+                    <div className="space-y-6">
+                        <div>
+                            <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Info size={14} className="text-indigo-500" /> Instructions for Client
+                            </h4>
+                            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                                To enable StrataPilot’s {type === 'GA4' ? 'Audience, ROI & Performance' : 'Creative Diagnostics & Ad Performance'} analysis, please provide access:
+                            </p>
+
+                            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 space-y-4">
+                                {type === 'GA4' ? (
+                                    <>
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">1</div>
+                                            <p className="text-xs text-slate-600">Go to <strong>GA4 → Admin → Property Access Management</strong></p>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">2</div>
+                                            <p className="text-xs text-slate-600">Click <strong>“Add user”</strong></p>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">3</div>
+                                            <div className="flex-1">
+                                                <p className="text-xs text-slate-600 mb-2">Add this email:</p>
+                                                <div className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg group">
+                                                    <code className="text-[10px] text-indigo-600 font-mono flex-1">service@stratapilot-api.iam.gserviceaccount.com</code>
+                                                    <button onClick={() => copyToClipboard('service@stratapilot-api.iam.gserviceaccount.com')} className="p-1 hover:bg-slate-100 rounded">
+                                                        <Copy size={12} className="text-slate-400" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">4</div>
+                                            <p className="text-xs text-slate-600">Assign role: <strong>Viewer (or Analyst)</strong></p>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">5</div>
+                                            <div className="flex-1">
+                                                <p className="text-xs text-slate-600 mb-2">Share your <strong>GA4 Property ID</strong> in the text box below</p>
+                                                <input
+                                                    type="text"
+                                                    value={propertyId}
+                                                    onChange={(e) => setPropertyId(e.target.value)}
+                                                    placeholder="Enter Property ID (e.g. 123456789)"
+                                                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-100 outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">1</div>
+                                            <p className="text-xs text-slate-600">Open <strong>Meta Business Settings → Users → Partners</strong></p>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">2</div>
+                                            <p className="text-xs text-slate-600">Click <strong>“Add Partner”</strong></p>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">3</div>
+                                            <div className="flex-1">
+                                                <p className="text-xs text-slate-600 mb-2">Enter our BM ID:</p>
+                                                <div className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg group">
+                                                    <code className="text-[10px] text-indigo-600 font-mono flex-1">192837465001</code>
+                                                    <button onClick={() => copyToClipboard('192837465001')} className="p-1 hover:bg-slate-100 rounded">
+                                                        <Copy size={12} className="text-slate-400" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">4</div>
+                                            <div className="flex-1">
+                                                <p className="text-xs text-slate-600 mb-1">Grant access to:</p>
+                                                <ul className="text-[11px] text-slate-500 list-disc ml-4 space-y-0.5">
+                                                    <li>Ad Accounts → View Performance</li>
+                                                    <li>Page Insights (optional)</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Data we will pull:</h4>
+                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+                                {(type === 'GA4' ? [
+                                    'Website traffic & audience breakup',
+                                    'Engagement & user behavior',
+                                    'Top pages and drop-offs',
+                                    'Ad-to-landing performance',
+                                    'Conversion events & funnels'
+                                ] : [
+                                    'Ad spend, impressions, CTR, CPM, ROAS',
+                                    'Audience breakdown & delivery insights',
+                                    'Creative variations & performance shifts',
+                                    'Benchmarking across categories'
+                                ]).map((item, idx) => (
+                                    <li key={idx} className="flex items-center gap-2 text-[11px] text-slate-600 font-medium">
+                                        <div className="w-1 h-1 rounded-full bg-indigo-400"></div> {item}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div className="mt-8 space-y-4">
+                        <button
+                            onClick={handleComplete}
+                            disabled={isProcessing}
+                            className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50"
+                        >
+                            {isProcessing ? <Loader2 size={18} className="animate-spin" /> : 'Confirm Access Granted'}
+                        </button>
+                        <p className="text-[10px] text-center text-slate-400 font-medium">
+                            Explicitly state: No data is stored, no data is modified, access is read-only and can be revoked anytime.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const TechLayerLoader: React.FC<{ step: number }> = ({ step }) => {
+    const processSteps = [
+        { icon: Archive, label: "Unified Data Lake Ingestion", sub: "Aggregating Benchmarks, History & Attribution Data" },
+        { icon: Search, label: "Multimodal Feature Extraction", sub: "CV + NLP Pattern Recognition & Vector Embedding" },
+        { icon: Shuffle, label: "OOD Stability Testing", sub: "Perturbation Check & Noise Filtering" },
+        { icon: Zap, label: "Predictive KPI Modeling", sub: "Forecasting ROAS, CTR & Conversion Probabilities" },
+        { icon: Brain, label: "Agentic Intelligence Engine", sub: "Running Multi-Agent Orchestration & Reasoning" },
+        { icon: Scale, label: "Bias & Fairness Audit", sub: "Ethical AI Guardrails & Drift Detection" },
+        { icon: CheckSquare, label: "Running 10-Point Validation Suite", sub: "Held-out Eval, Adversarial Check & Calibration" },
+        { icon: ShieldAlert, label: "Governance & Risk Control", sub: "Validating against Guardrails & QA Pipelines" },
+        { icon: RefreshCcw, label: "Workflow Automation Layer", sub: "Generating Optimization Cycles & A/B Hypotheses" },
+        { icon: BarChart3, label: "Explainability & Insight Layer", sub: "Rendering Heatmaps & Score Justifications" },
+        { icon: RefreshCw, label: "Continuous Learning Loop", sub: "Updating Weights based on Real-time Feedback" }
+    ];
+
+    const techLayers = [
+        { id: 0, label: "Input Layer", sub: "Ad Data Ingestion", icon: Database, tools: "Python + SQL" },
+        { id: 1, label: "Processing Layer", sub: "Feature Engineering + Embedding", icon: Cpu, tools: "Python Core" },
+        { id: 2, label: "Intelligence Layer", sub: "Model Training + Scoring Engine", icon: BrainCircuit, tools: "Python + R (statistical co-processor)" },
+        { id: 3, label: "Analytics Layer", sub: "Data + Model Repository", icon: Server, tools: "SQL / NoSQL + Python APIs" },
+        { id: 4, label: "Visualization Layer", sub: "Marketing Intelligence Dashboard", icon: BarChart, tools: "JavaScript + Python (Streamlit)" },
+        { id: 5, label: "Feedback Layer", sub: "Continuous Learning", icon: RefreshCw, tools: "Python + YAML/JSON configuration" },
+    ];
+
+    const getActiveMacroLayer = (s: number) => {
+        if (s === 0) return 0;
+        if (s === 1) return 1;
+        if (s >= 2 && s <= 6) return 2;
+        if (s >= 7 && s <= 8) return 3;
+        if (s === 9) return 4;
+        if (s === 10) return 5;
+        return 0;
+    }
+
+    const activeLayerIndex = getActiveMacroLayer(step);
+
+    const Icon = ({ s, active, completed }: { s: any, active: boolean, completed: boolean }) => {
+        const IconComp = s.icon;
+        return <IconComp size={14} className={active ? 'animate-pulse text-white' : completed ? 'text-slate-600' : 'text-slate-400'} />;
+    };
+
+    return (
+        <div className="w-full max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12">
+            <div>
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <Zap size={12} className="text-indigo-500" /> Live Processing Stream
+                </h4>
+                <div className="space-y-3 relative">
+                    <div className="absolute left-[15px] top-4 bottom-4 w-0.5 bg-slate-100"></div>
+                    {processSteps.map((s, idx) => {
+                        const isActive = step === idx;
+                        const isCompleted = step > idx;
+
+                        return (
+                            <div key={idx} className={`flex items-center gap-4 transition-all duration-300 relative z-10 ${isActive ? 'scale-100 opacity-100' : isCompleted ? 'opacity-80' : 'opacity-20 blur-[1px]'}`}>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-all duration-500 flex-shrink-0 ${isActive ? 'bg-indigo-600 border-indigo-500 shadow-lg shadow-indigo-500/30' :
+                                    isCompleted ? 'bg-emerald-50 border-emerald-500' :
+                                        'bg-slate-50 border-slate-200'
+                                    }`}>
+                                    <Icon s={s} active={isActive} completed={isCompleted} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className={`text-[10px] font-bold uppercase tracking-wide truncate ${isActive ? 'text-indigo-700' : 'text-slate-600'}`}>{s.label}</h4>
+                                    <p className={`text-[9px] truncate ${isActive ? 'text-indigo-500 font-medium' : 'text-slate-400'}`}>
+                                        {isActive ? "Processing..." : s.sub}
+                                    </p>
+                                </div>
+                                {isActive && (
+                                    <div className="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div className="border-l border-slate-100 pl-8 md:block hidden">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <ServerCog size={12} className="text-emerald-500" /> Enterprise Tech Stack
+                </h4>
+                <div className="space-y-6 relative">
+                    <div className="absolute left-[24px] top-6 bottom-6 w-0.5 bg-gradient-to-b from-slate-200 via-indigo-200 to-slate-200"></div>
+                    {techLayers.map((layer, idx) => {
+                        const isActive = activeLayerIndex === idx;
+                        const isPassed = activeLayerIndex > idx;
+                        return (
+                            <div key={idx} className={`flex items-start gap-4 relative z-10 transition-all duration-500 ${isActive ? 'translate-x-2' : ''}`}>
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4 transition-all duration-500 flex-shrink-0 ${isActive ? 'bg-white border-indigo-500 shadow-xl shadow-indigo-100 scale-110' :
+                                    isPassed ? 'bg-emerald-50 border-emerald-200' :
+                                        'bg-slate-50 border-white'
+                                    }`}>
+                                    <layer.icon size={20} className={isActive ? 'text-indigo-600' : isPassed ? 'text-emerald-500' : 'text-slate-300'} />
+                                </div>
+                                <div>
+                                    <h4 className={`text-xs font-bold uppercase tracking-wider ${isActive ? 'text-indigo-700' : isPassed ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                        {layer.label}
+                                    </h4>
+                                    <p className={`text-[10px] font-medium mb-1.5 ${isActive ? 'text-indigo-500' : 'text-slate-400'}`}>
+                                        {layer.sub}
+                                    </p>
+                                    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100 border border-slate-200 ${isActive ? 'opacity-100' : 'opacity-60'}`}>
+                                        <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
+                                        <span className="text-[9px] font-mono text-slate-600 tracking-tight">{layer.tools}</span>
+                                    </div>
+                                </div>
+                                {isActive && (
+                                    <div className="absolute -left-12 top-6 w-8 h-px bg-indigo-500 animate-pulse hidden md:block"></div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export const Dashboard: React.FC = () => {
     const [file, setFile] = useState<File | null>(null);
     const [urlInput, setUrlInput] = useState('');
-    const [textContext, setTextContext] = useState(`StrataPilot is launching a new campaign focused on 'Precision at Scale' for our enterprise clients. The primary objective is to demonstrate how our AI-driven insights can reduce wasted ad spend by 40% while simultaneously increasing conversion rates by 25%. We are targeting C-suite executives and Marketing Directors in the Fortune 500 space who are struggling with data fragmentation and attribution challenges. The campaign will leverage a mix of high-impact video testimonials and data-rich whitepapers to build credibility.
-
-Our strategic intent is to position StrataPilot not just as a tool, but as a strategic partner in digital transformation. We want to highlight our unique ability to ingest data from multiple sources—Meta, Google, TikTok—and provide a unified, holistic view of creative performance. By focusing on 'predictive intelligence,' we aim to differentiate ourselves from traditional analytics platforms that only offer retrospective reporting. The messaging should be authoritative yet accessible, emphasizing ease of integration and immediate ROI.
-
-The target audience is currently facing significant pressure to justify marketing budgets in a tightening economic climate. Therefore, our communications must be laser-focused on value unlocking and efficiency. We need to address their pain points around 'black box' algorithms and offer transparency through our explainable AI models. The campaign will run across LinkedIn, industry publications, and targeted programmatic display, with a heavy emphasis on account-based marketing (ABM) for our top 50 prospects.
-
-We are also introducing a new 'Creative Resonance Score' as a key metric for this campaign. This score aggregates emotional response, brand alignment, and technical quality into a single KPI. We believe this will resonate strongly with our audience, who are looking for quantifiable ways to measure creativity. The 'Strategic Context' for this campaign also includes a competitive blitz against legacy incumbents, positioning their solutions as slow and disconnected compared to our real-time, agile approach.
-
-Finally, success will be measured not just by leads generated, but by the 'quality of conversation' initiated with our sales team. We are looking for prospects who are ready to adopt a 'learning loop' mentality, where creative insights continuously inform media buying and vice versa. This campaign is the first step in a broader initiative to redefine the category of 'Creative Intelligence' and establish StrataPilot as the undisputed market leader.`);
+    const [textContext, setTextContext] = useState('');
     const [selectedPreset, setSelectedPreset] = useState<string>('');
     const [userQuery, setUserQuery] = useState('');
     const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -31,62 +313,13 @@ Finally, success will be measured not just by leads generated, but by the 'quali
     const [processingStep, setProcessingStep] = useState(0);
     const [activeVoiceField, setActiveVoiceField] = useState<'context' | 'query' | null>(null);
     const [auditCounter, setAuditCounter] = useState(1);
-
-    // STATE SOURCE OF TRUTH: Backend Connection Objects
-    const [ga4ConnectionData, setGa4ConnectionData] = useState<GA4Connection | null>(null);
-    const [metaConnectionData, setMetaConnectionData] = useState<MetaConnection | null>(null);
-
-    // Derived state (optional, or just use object existence)
-    const ga4Connected = !!ga4ConnectionData;
-    const metaConnected = metaConnectionData?.isConnected || false;
-
+    const [ga4Connected, setGa4Connected] = useState(false);
+    const [metaConnected, setMetaConnected] = useState(false);
     const [activeModal, setActiveModal] = useState<IntegrationType | null>(null);
-    const [googleToken, setGoogleToken] = useState<string | null>(null);
-    const [metaToken, setMetaToken] = useState<string | null>(null);
-    const [gaPropertyId, setGaPropertyId] = useState<string | null>(null);
-
-    // Initial load and callback handling
-    useEffect(() => {
-        const checkConnections = async () => {
-            // 1. GA4
-            try {
-                // Check URL for GA4 success param
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.get('ga4') === 'success') {
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                }
-
-                const gaConn = await ga4Service.getConnectionStatus();
-                if (gaConn) {
-                    setGa4ConnectionData(gaConn);
-                    if (gaConn.property_id) {
-                        setGaPropertyId(gaConn.property_id);
-                    }
-                } else {
-                    setGa4ConnectionData(null);
-                }
-            } catch (e) {
-                console.error("Failed to check GA4 status", e);
-            }
-
-            // 2. Meta
-            try {
-                const metaConn = await metaService.getConnectionStatus();
-                if (metaConn) {
-                    setMetaConnectionData(metaConn);
-                } else {
-                    setMetaConnectionData(null);
-                }
-            } catch (e) {
-                console.error("Failed to check Meta status", e);
-            }
-        };
-
-        checkConnections();
-    }, []); // Run ONCE on mount
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const recognitionRef = useRef<any>(null);
+    const pdfRef = useRef<PdfSystemHandle>(null);
 
     useEffect(() => {
         let interval: any;
@@ -98,28 +331,6 @@ Finally, success will be measured not just by leads generated, but by the 'quali
         }
         return () => clearInterval(interval);
     }, [loadingState]);
-
-    // HITL PERSISTENCE LAYER: Session-scoped Draft
-    useEffect(() => {
-        const savedDraft = localStorage.getItem('stratapilot_draft_v1');
-        if (savedDraft) {
-            try {
-                const parsed = JSON.parse(savedDraft);
-                if (parsed && parsed.adDiagnostics) {
-                    console.log("Restoring draft analysis session...");
-                    setResult(parsed);
-                }
-            } catch (e) {
-                console.error("Failed to restore draft:", e);
-            }
-        }
-    }, []);
-
-    useEffect(() => {
-        if (result) {
-            localStorage.setItem('stratapilot_draft_v1', JSON.stringify(result));
-        }
-    }, [result]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -135,8 +346,8 @@ Finally, success will be measured not just by leads generated, but by the 'quali
     };
 
     const validateAndSetFile = (uploadedFile: File) => {
-        if (uploadedFile.size > 100 * 1024 * 1024) {
-            setError("File size exceeds 100MB limit. Please upload a shorter video (max ~3 minutes).");
+        if (uploadedFile.size > 25 * 1024 * 1024) {
+            setError("File size exceeds 25MB limit for this demo.");
             return;
         }
         setFile(uploadedFile);
@@ -204,52 +415,29 @@ Finally, success will be measured not just by leads generated, but by the 'quali
         if (userQuery) contextParts.push(`User Question: ${userQuery}`);
         const combinedContext = contextParts.join('\n\n');
         const activeLabel = presetOverride || selectedPreset || "Balanced Analysis";
-
         if (!file && !urlInput && !combinedContext.trim() && !presetOverride) {
             setError("Please upload a file, provide a link, or select an analysis focus.");
             return;
         }
-
         setLoadingState('analyzing');
         setError(null);
         setResult(null);
         if (presetOverride) { setSelectedPreset(presetOverride); }
-
         try {
-            let data;
-            if (urlInput) {
-                // Use the new URL analysis endpoint
-                // Import is needed at top, but I can assume it's imported or I will update imports in another step
-                // Actually I should update imports first or use the imported function if I update the imports.
-                // Wait, I updated geminiService.ts to export analyzeUrl. I need to update imports in Dashboard.tsx too.
-                // For now, I'll access it from the module if I can, but imports are static.
-                // I will assume the imports are updated.
-                const { analyzeUrl } = await import('../services/geminiService');
-                data = await analyzeUrl(urlInput, combinedContext, activeLabel, { googleToken: googleToken || undefined, metaToken: metaToken || undefined, gaPropertyId: gaPropertyId || undefined });
-            } else {
-                data = await analyzeCollateral(combinedContext, activeLabel, file || undefined, { googleToken: googleToken || undefined, metaToken: metaToken || undefined, gaPropertyId: gaPropertyId || undefined });
-            }
-
+            const data = await analyzeCollateral(combinedContext, activeLabel, file || undefined);
             const newAuditId = `SP-${String(auditCounter).padStart(5, '0')}`;
             setAuditCounter(prev => prev + 1);
             setResult({ ...data, auditId: newAuditId });
             setLoadingState('success');
         } catch (err: any) {
-            console.error("Analysis Error:", err);
-            let errorMessage = err.message || "Failed to analyze collateral. Please try again.";
-
-            if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
-                errorMessage = "Connection to server failed. Please ensure the backend is running on port 3000.";
-            }
-
-            setError(errorMessage);
+            setError(err.message || "Failed to analyze collateral. Please try again.");
             setLoadingState('error');
         }
     };
 
-    const handleAnalyzeClick = () => runAnalysis();
     const handlePresetClick = (label: string) => {
         setSelectedPreset(label);
+        // Auto-run if context exists
         if (file || urlInput || textContext || userQuery) { runAnalysis(label); }
     };
 
@@ -326,7 +514,7 @@ Finally, success will be measured not just by leads generated, but by the 'quali
             <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-white/20 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-4 cursor-pointer" onClick={() => window.location.reload()}>
-                        <div className="flex items-center gap-3 select-none bg-[#2F5C5C] px-5 py-3 rounded-xl shadow-lg shadow-[#2F5C5C]/20 transform hover:scale-[1.02] transition-transform duration-300 border border-[#234b4b]">
+                        <div className="flex items-center gap-3 select-none bg-[#2F5C5C] px-5 py-3 rounded-xl shadow-lg shadow-[#0F5C5C]/20 transform hover:scale-[1.02] transition-transform duration-300 border border-[#234b4b]">
                             <div className="flex items-center justify-center font-bold text-red-500 text-3xl tracking-tighter filter drop-shadow-sm"> &lt;/&gt; </div>
                             <div className="flex flex-col -space-y-0.5">
                                 <h1 className="text-xl font-serif font-bold tracking-widest text-white">STRATAPILOT</h1>
@@ -342,12 +530,10 @@ Finally, success will be measured not just by leads generated, but by the 'quali
             </header>
 
             <main className="flex-grow max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-                {loadingState === 'idle' && !result && (
-                    <div className="pt-6 pb-4 text-center animate-in fade-in slide-in-from-top-4 duration-700">
-                        <h2 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-indigo-800 to-slate-900 tracking-tight mb-4 font-serif"> Predictive Creative Intelligence </h2>
-                        <p className="text-base leading-relaxed max-w-3xl mx-auto text-slate-600 font-light"> StrataPilot is the enterprise-grade creative intelligence engine that turns your ad data into boardroom-ready science. By analyzing thousands of visual and textual variables against millions of performance benchmarks, we predict ROAS, CTR, and brand lift with forensic accuracy. Stop guessing what works—upload your creative, connect your data, and let our neural networks reveal the truth behind your performance. </p>
-                    </div>
-                )}
+                <div className="pt-6 pb-4 text-center animate-in fade-in slide-in-from-top-4 duration-700">
+                    <h2 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-indigo-800 to-slate-900 tracking-tight mb-4 font-serif"> Predictive Creative Intelligence </h2>
+                    <p className="text-base leading-relaxed max-w-3xl mx-auto text-slate-600 font-light"> Too many ads miss the mark — they fail to connect with the right audience, dilute brand impact, and waste valuable marketing spend. Without a clear way to measure effectiveness, brands risk putting out creative that looks good but doesn’t deliver results. <br className="hidden md:block" /> <span className="font-semibold text-indigo-700">StrataPilot</span> gives you the vision to fix creative before you spend making it the apt Ad diagnostic tool. </p>
+                </div>
 
                 <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-indigo-900/10 border border-white/50 overflow-hidden relative group">
                     <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-indigo-500 to-purple-500"></div>
@@ -387,7 +573,7 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                                         <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-md"> <Globe size={14} /> </div> Analyze URL
                                     </label>
                                     <div className="relative">
-                                        <input type="text" value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="Paste URL (YouTube, TikTok, Instagram)..." className="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-300 bg-white text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-shadow" />
+                                        <input type="text" value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="" className="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-300 bg-white text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-shadow" />
                                         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"> <LinkIcon size={16} /> </div>
                                     </div>
                                 </div>
@@ -430,16 +616,6 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                                                 {ga4Connected ? (
                                                     <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 mt-1 animate-in fade-in slide-in-from-left-2">
                                                         <CheckCircle2 size={12} /> Connected
-                                                        {ga4ConnectionData?.last_fetch_status === 'SUCCESS_NO_DATA' && (
-                                                            <span className="ml-1 text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                                                                (No data yet)
-                                                            </span>
-                                                        )}
-                                                        {ga4ConnectionData?.last_fetch_status === 'FAILED' && (
-                                                            <span className="ml-1 text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
-                                                                (Sync Failed)
-                                                            </span>
-                                                        )}
                                                     </span>
                                                 ) : (
                                                     <span className="text-[10px] font-medium text-indigo-600 flex items-center gap-1 mt-1"> Connect <ArrowRight size={10} /> </span>
@@ -459,16 +635,6 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                                                 {metaConnected ? (
                                                     <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 mt-1 animate-in fade-in slide-in-from-left-2">
                                                         <CheckCircle2 size={12} /> Connected
-                                                        {metaConnectionData?.aggregateStatus === 'SUCCESS_NO_DATA' && (
-                                                            <span className="ml-1 text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                                                                (No data yet)
-                                                            </span>
-                                                        )}
-                                                        {metaConnectionData?.aggregateStatus === 'FAILED' && (
-                                                            <span className="ml-1 text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
-                                                                (Sync Failed)
-                                                            </span>
-                                                        )}
                                                     </span>
                                                 ) : (
                                                     <span className="text-[10px] font-medium text-indigo-600 flex items-center gap-1 mt-1"> Connect <ArrowRight size={10} /> </span>
@@ -481,91 +647,28 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                             </div>
                         </div>
 
-                        {/* GA4 Integration Section */}
-                        {ga4Connected && (
-                            <div className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                {!gaPropertyId ? (
-                                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200">
-                                        <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 text-center">Complete Setup</h3>
-                                        <GA4PropertyPicker onSelect={(prop) => {
-                                            setGaPropertyId(prop.id);
-                                            // Reload connection status to get full object if needed, 
-                                            // or construct it locally. 
-                                            // Let's reload status to be safe and get timezone/currency.
-                                            ga4Service.getConnectionStatus().then(conn => setGa4ConnectionData(conn));
-                                        }} />
-                                    </div>
-                                ) : (
-                                    ga4ConnectionData && (
-                                        <GA4Dashboard
-                                            connection={ga4ConnectionData}
-                                            onDisconnect={() => {
-                                                setGaPropertyId(null);
-                                                setGa4ConnectionData(null);
-                                            }}
-                                        />
-                                    )
-                                )}
-                            </div>
-                        )}
-
-
                         <div className="mb-8">
                             <div className="flex justify-between items-end mb-4">
                                 <p className="text-sm font-bold text-slate-700 uppercase tracking-widest flex items-center gap-2"> <Target size={16} className="text-indigo-600" /> Select Analysis Mode </p>
                                 {selectedPreset && <span className="text-[10px] font-bold text-white bg-indigo-600 px-3 py-1 rounded-full shadow-md animate-in fade-in slide-in-from-right-4 flex items-center gap-1.5"> <CheckCircle2 size={12} className="text-white" /> Active: {selectedPreset} </span>}
                             </div>
-
-                            {/* Primary Action - Visual Insight Mining */}
-                            <button
-                                type="button"
-                                onClick={() => handlePresetClick("Visual Insight Mining")}
-                                className={`w-full mb-6 p-6 rounded-2xl border-2 flex items-center justify-between group transition-all duration-200 relative overflow-hidden ${selectedPreset === "Visual Insight Mining"
-                                    ? "bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-500 ring-2 ring-indigo-500 shadow-lg"
-                                    : "bg-gradient-to-r from-indigo-50/50 to-purple-50/50 border-indigo-300 hover:border-indigo-500 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99]"
-                                    }`}
-                            >
-                                <div className="flex items-center gap-5">
-                                    <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                                        <Scan size={28} className="text-white" />
-                                    </div>
-                                    <div className="text-left">
-                                        <span className="block text-xs font-black uppercase tracking-wider text-indigo-600 mb-1">Visual Insight Mining</span>
-                                        <span className="text-sm font-medium text-slate-700">Generate detailed Insight Points with comprehensive graphics and strategic recommendations</span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    {selectedPreset === "Visual Insight Mining" && (
-                                        <div className="bg-indigo-600 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider animate-in zoom-in">
-                                            Active
-                                        </div>
-                                    )}
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${selectedPreset === "Visual Insight Mining"
-                                        ? "bg-indigo-600 text-white"
-                                        : "bg-indigo-100 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white"
-                                        }`}>
-                                        <ArrowRight size={20} />
-                                    </div>
-                                </div>
-                                <div className="absolute -bottom-8 -right-8 opacity-5 transform rotate-12">
-                                    <Scan size={120} />
-                                </div>
-                            </button>
-
-                            {/* Other Analysis Modes - Original Grid Style */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                {analysisPresets.filter(p => p.label !== "Visual Insight Mining").map((preset, index) => {
+                                {analysisPresets.map((preset, index) => {
                                     const isSelected = selectedPreset === preset.label;
                                     const style = themeStyles[preset.theme] || themeStyles['blue'];
                                     const baseClasses = "text-left p-4 rounded-xl border flex flex-col justify-between h-full group transition-all duration-150 relative overflow-hidden select-none cursor-pointer";
                                     const classes = isSelected ? `${baseClasses} ${style.active}` : `${baseClasses} ${style.inactive}`;
-                                    const iconIndex = analysisPresets.findIndex(p => p.label === preset.label);
                                     return (
+
                                         <button
                                             key={index}
                                             type="button"
-                                            onClick={() => { }}
-                                            className={classes}
+                                            onClick={() => {
+                                                if (preset.label === "Visual Insight Mining") {
+                                                    handlePresetClick(preset.label);
+                                                }
+                                            }}
+                                            className={`${classes} ${preset.label === "Visual Insight Mining" ? 'ring-2 ring-indigo-500 shadow-2xl shadow-indigo-200 scale-110 z-50 bg-white transform-gpu' : 'cursor-default hover:shadow-none hover:translate-y-0 hover:border-slate-200 opacity-100 scale-95'}`}
                                         >
                                             {isSelected && <div className="absolute top-3 right-3 text-indigo-600 bg-white rounded-full p-0.5 shadow-sm animate-in zoom-in duration-200"> <CheckCircle2 size={16} fill="currentColor" className="text-white" /> </div>}
                                             <div className="relative z-10">
@@ -573,21 +676,25 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                                                 <span className={`text-xs font-medium leading-relaxed block ${isSelected ? style.text : 'text-slate-600'}`}> {preset.text} </span>
                                             </div>
                                             <div className={`absolute -bottom-4 -right-4 opacity-10 transform rotate-12 transition-transform group-hover:scale-125 group-hover:opacity-20 ${isSelected ? 'scale-125 opacity-20' : ''}`}>
-                                                {iconIndex === 0 && <Fingerprint size={60} />}
-                                                {iconIndex === 1 && <Target size={60} />}
-                                                {iconIndex === 2 && <Globe size={60} />}
-                                                {iconIndex === 3 && <Gavel size={60} />}
-                                                {iconIndex === 5 && <Diamond size={60} />}
-                                                {iconIndex === 6 && <TrendingUp size={60} />}
-                                                {iconIndex === 7 && <Zap size={60} />}
-                                                {iconIndex === 8 && <LineChart size={60} />}
-                                                {iconIndex === 9 && <BarChart size={60} />}
-                                                {iconIndex === 10 && <Smile size={60} />}
-                                                {iconIndex === 11 && <Workflow size={60} />}
+                                                {index === 0 && <Fingerprint size={60} />}
+                                                {index === 1 && <Target size={60} />}
+                                                {index === 2 && <Globe size={60} />}
+                                                {index === 3 && <Gavel size={60} />}
+                                                {index === 4 && <Scan size={60} />}
+                                                {index === 5 && <Diamond size={60} />}
+                                                {index === 6 && <TrendingUp size={60} />}
+                                                {index === 7 && <Zap size={60} />}
+                                                {index === 8 && <LineChart size={60} />}
+                                                {index === 9 && <BarChart size={60} />}
+                                                {index === 10 && <Smile size={60} />}
+                                                {index === 11 && <Workflow size={60} />}
                                             </div>
-
+                                            {preset.label === "Visual Insight Mining" && (
+                                                <div className={`mt-3 self-end transition-all transform ${isSelected ? `translate-x-1 ${style.labelActive}` : 'text-slate-300 group-hover:text-slate-400 group-hover:translate-x-1'}`}> <ArrowRight size={16} /> </div>
+                                            )}
                                         </button>
                                     );
+
                                 })}
                             </div>
                         </div>
@@ -604,7 +711,7 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                                 {activeVoiceField === 'query' ? <AudioLines size={20} /> : <Mic size={20} />}
                                 {activeVoiceField === 'query' && <span className="text-xs font-bold">Listening...</span>}
                             </button>
-                            <button type="button" onClick={() => runAnalysis()} disabled={loadingState === 'analyzing'} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-900/20 hover:bg-indigo-900 hover:shadow-indigo-900/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[140px] justify-center text-sm"> {loadingState === 'analyzing' ? <> <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Processing... </> : <> <Bot size={18} /> Run Neural Network </>} </button>
+                            <button onClick={() => runAnalysis()} disabled={loadingState === 'analyzing'} className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-900/20 hover:bg-indigo-900 hover:shadow-indigo-900/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-w-[140px] justify-center text-sm"> {loadingState === 'analyzing' ? <> <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Processing... </> : <> <Bot size={18} /> Run Neural Network </>} </button>
                         </div>
                     </div>
                 </div>
@@ -632,74 +739,62 @@ Finally, success will be measured not just by leads generated, but by the 'quali
                                 {sectionDividers.map((label, idx) => (<button key={idx} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[9px] font-bold text-slate-600 hover:bg-indigo-600 hover:border-indigo-500 hover:text-white hover:shadow-lg transition-all whitespace-nowrap"> {label} </button>))}
                             </div>
                         </div>
-                        <AnalysisView data={result} onUpdateData={setResult} onGenerateStrategy={handleStrategy} isStrategizing={loadingState === 'strategizing'} activeMode={selectedPreset || "Balanced Analysis"} />
-                        {result.campaignStrategy && <StrategyView strategy={result.campaignStrategy} onUpdate={(s) => setResult({ ...result, campaignStrategy: s })} />}
+                        <AnalysisView data={result} onUpdateData={setResult} onGenerateStrategy={handleStrategy} isStrategizing={loadingState === 'strategizing'} activeMode={selectedPreset || "Balanced Analysis"} onExport={async () => { await pdfRef.current?.generate(); }} />
+                        {result.campaignStrategy && <StrategyView strategy={result.campaignStrategy} />}
+                        <PdfSystem ref={pdfRef} data={result} />
                     </div>
                 )}
 
-                {loadingState === 'idle' && !result && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
-                        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-                            {benefits.map((b, i) => (
-                                <div key={i} className={`p-3 rounded-xl border border-slate-200 bg-white/50 backdrop-blur-sm hover:bg-white transition-all hover:shadow-lg group ${b.bg}`}>
-                                    <div className={`w-8 h-8 rounded-lg ${b.bg} flex items-center justify-center mb-2 group-hover:scale-110 transition-transform`}> <b.icon size={16} className={b.color} /> </div>
-                                    <h4 className={`text-xs font-bold mb-1 ${b.title}`}>{b.title}</h4>
-                                    <p className="text-[10px] text-slate-500 leading-tight">{b.desc}</p>
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
+                    <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+                        {benefits.map((b, i) => (
+                            <div key={i} className={`p-3 rounded-xl border border-slate-200 bg-white/50 backdrop-blur-sm hover:bg-white transition-all hover:shadow-lg group ${b.bg}`}>
+                                <div className={`w-8 h-8 rounded-lg ${b.bg} flex items-center justify-center mb-2 group-hover:scale-110 transition-transform`}> <b.icon size={16} className={b.color} /> </div>
+                                <h4 className={`text-xs font-bold mb-1 ${b.title}`}>{b.title}</h4>
+                                <p className="text-[10px] text-slate-500 leading-tight">{b.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 bg-gradient-to-br from-[#1e1b4b] to-[#312e81] rounded-2xl p-6 text-white shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                            <div className="flex flex-col gap-6 relative z-10">
+                                <div className="space-y-4">
+                                    <h3 className="text-lg font-bold flex items-center gap-2"> <Database className="text-indigo-300" /> Overview & Methodology </h3>
+                                    <p className="text-xs text-indigo-100 leading-relaxed opacity-90"> StrataPilot’s Ad Diagnostic & Persona Alignment Tool is a structured framework designed to evaluate advertisements through the lens of audience relevance, message clarity, and emotional resonance. </p>
+                                    <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-3">
+                                        <h4 className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider mb-2">Ideal Use Cases:</h4>
+                                        <ul className="grid grid-cols-2 sm:grid-cols-4 gap-2"> {['Pre-launch ad testing', 'Mid-campaign optimization', 'Post-campaign reviews', 'Creative brainstorming'].map((useCase, i) => (<li key={i} className="flex items-center gap-1.5 text-[10px] text-indigo-100 font-medium"> <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div> {useCase} </li>))} </ul>
+                                    </div>
+                                    <div className="pt-2">
+                                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 mb-3 flex items-center gap-2"> <Globe size={12} /> Powered by Global Ad Intelligence </h4>
+                                        <div className="flex flex-wrap gap-2"> {dataSources.slice(0, 12).map((src, i) => (<span key={i} className="px-2 py-1 bg-indigo-900/50 border border-indigo-500/30 rounded text-[9px] text-indigo-200 font-medium"> {src} </span>))} <span className="px-2 py-1 bg-indigo-500/20 border border-indigo-500/30 rounded text-[9px] text-white font-bold"> +50 More </span> </div>
+                                    </div>
                                 </div>
-                            ))}
+                            </div>
                         </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div className="lg:col-span-2 bg-gradient-to-br from-[#1e1b4b] to-[#312e81] rounded-2xl p-6 text-white shadow-2xl relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                                <div className="flex flex-col gap-6 relative z-10">
-                                    <div className="space-y-4">
-                                        <h3 className="text-lg font-bold flex items-center gap-2"> <Database className="text-indigo-300" /> Overview & Methodology </h3>
-                                        <p className="text-xs text-indigo-100 leading-relaxed opacity-90"> StrataPilot’s Ad Diagnostic & Persona Alignment Tool is a structured framework designed to evaluate advertisements through the lens of audience relevance, message clarity, and emotional resonance. </p>
-                                        <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-3">
-                                            <h4 className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider mb-2">Ideal Use Cases:</h4>
-                                            <ul className="grid grid-cols-2 sm:grid-cols-4 gap-2"> {['Pre-launch ad testing', 'Mid-campaign optimization', 'Post-campaign reviews', 'Creative brainstorming'].map((useCase, i) => (<li key={i} className="flex items-center gap-1.5 text-[10px] text-indigo-100 font-medium"> <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div> {useCase} </li>))} </ul>
-                                        </div>
-                                        <div className="pt-2">
-                                            <h4 className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 mb-3 flex items-center gap-2"> <Globe size={12} /> Powered by Global Ad Intelligence </h4>
-                                            <div className="flex flex-wrap gap-2"> {dataSources.slice(0, 12).map((src, i) => (<span key={i} className="px-2 py-1 bg-indigo-900/50 border border-indigo-500/30 rounded text-[9px] text-indigo-200 font-medium"> {src} </span>))} <span className="px-2 py-1 bg-indigo-500/20 border border-indigo-500/30 rounded text-[9px] text-white font-bold"> +50 More </span> </div>
-                                        </div>
-                                    </div>
+                        <div className="bg-slate-900 rounded-2xl p-6 text-white border border-slate-700/50 shadow-xl flex flex-col justify-between">
+                            <div>
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400 mb-4 flex items-center gap-2"> <ServerCog size={16} /> Enterprise Capabilities </h3>
+                                <ul className="space-y-3">
+                                    <li className="flex items-start gap-3"> <div className="mt-0.5"><Database size={14} className="text-indigo-400" /></div> <div> <h4 className="text-xs font-bold text-slate-200">Unified Data Architecture</h4> <p className="text-[10px] text-slate-400 leading-tight">Data lake ingestion + Attribution layer</p> </div> </li>
+                                    <li className="flex items-start gap-3"> <div className="mt-0.5"><ShieldAlert size={14} className="text-indigo-400" /></div> <div> <h4 className="text-xs font-bold text-slate-200">Governance & Risk Controls</h4> <p className="text-[10px] text-slate-400 leading-tight">Audit logs & QA validation pipelines</p> </div> </li>
+                                    <li className="flex items-start gap-3"> <div className="mt-0.5"><Lock size={14} className="text-indigo-400" /></div> <div> <h4 className="text-xs font-bold text-slate-200">Multi-tenant Scaling</h4> <p className="text-[10px] text-slate-400 leading-tight">Role-based access & custom guardrails</p> </div> </li>
+                                </ul>
+                                <div className="mt-3 pt-3 border-t border-slate-800">
+                                    <div className="flex items-start gap-3"> <div className="mt-0.5"><ShieldCheck size={14} className="text-emerald-500" /></div> <div> <h4 className="text-xs font-bold text-emerald-400 mb-1">Zero Retention Architecture</h4> <p className="text-[10px] text-slate-400 leading-tight"> Enterprise-grade security. Stateless ephemeral processing. </p> </div> </div>
                                 </div>
                             </div>
-                            <div className="bg-slate-900 rounded-2xl p-6 text-white border border-slate-700/50 shadow-xl flex flex-col justify-between">
-                                <div>
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400 mb-4 flex items-center gap-2"> <ServerCog size={16} /> Enterprise Capabilities </h3>
-                                    <ul className="space-y-3">
-                                        <li className="flex items-start gap-3"> <div className="mt-0.5"><Database size={14} className="text-indigo-400" /></div> <div> <h4 className="text-xs font-bold text-slate-200">Unified Data Architecture</h4> <p className="text-[10px] text-slate-400 leading-tight">Data lake ingestion + Attribution layer</p> </div> </li>
-                                        <li className="flex items-start gap-3"> <div className="mt-0.5"><ShieldAlert size={14} className="text-indigo-400" /></div> <div> <h4 className="text-xs font-bold text-slate-200">Governance & Risk Controls</h4> <p className="text-[10px] text-slate-400 leading-tight">Audit logs & QA validation pipelines</p> </div> </li>
-                                        <li className="flex items-start gap-3"> <div className="mt-0.5"><Lock size={14} className="text-indigo-400" /></div> <div> <h4 className="text-xs font-bold text-slate-200">Multi-tenant Scaling</h4> <p className="text-[10px] text-slate-400 leading-tight">Role-based access & custom guardrails</p> </div> </li>
-                                    </ul>
-                                    <div className="mt-3 pt-3 border-t border-slate-800">
-                                        <div className="flex items-start gap-3"> <div className="mt-0.5"><ShieldCheck size={14} className="text-emerald-500" /></div> <div> <h4 className="text-xs font-bold text-emerald-400 mb-1">Zero Retention Architecture</h4> <p className="text-[10px] text-slate-400 leading-tight"> Enterprise-grade security. Stateless ephemeral processing. </p> </div> </div>
-                                    </div>
-                                </div>
-                                <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between"> <span className="text-[10px] text-slate-500 font-mono">v2.5.0-ent</span> <div className="flex items-center gap-1.5 text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded text-[10px] font-bold"> <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> SYSTEM OPERATIONAL </div> </div>
-                            </div>
+                            <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between"> <span className="text-[10px] text-slate-500 font-mono">v2.5.0-ent</span> <div className="flex items-center gap-1.5 text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded text-[10px] font-bold"> <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> SYSTEM OPERATIONAL </div> </div>
                         </div>
                     </div>
-                )}
+                </div>
 
                 <ConnectionModal
                     type={activeModal || 'GA4'}
                     isOpen={!!activeModal}
                     onClose={() => setActiveModal(null)}
-                    onSuccess={(token: string, extraId?: string) => {
-                        if (activeModal === 'GA4') {
-                            // Redirect flow usually handles this, but if reached:
-                            ga4Service.getConnectionStatus().then(conn => setGa4ConnectionData(conn));
-                            setGoogleToken(token);
-                            if (extraId) setGaPropertyId(extraId);
-                        } else {
-                            // Refresh Meta status immediately
-                            metaService.getConnectionStatus().then(conn => setMetaConnectionData(conn));
-                            setMetaToken(token);
-                        }
-                    }}
+                    onSuccess={() => activeModal === 'GA4' ? setGa4Connected(true) : setMetaConnected(true)}
                 />
 
                 <footer className="mt-20 py-12 border-t border-slate-200 text-center space-y-3">

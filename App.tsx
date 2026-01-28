@@ -6,6 +6,7 @@ import { CrossIndustryInsights } from './pages/CrossIndustryInsights';
 import ErrorBoundary from './components/ErrorBoundary';
 
 export const App: React.FC = () => {
+  // HMR Trigger: V4
   return (
     <ErrorBoundary>
       <Router>

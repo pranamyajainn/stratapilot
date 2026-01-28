@@ -2,13 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AnalysisResult, DiagnosticItem, Demographic, Psychographic, Behavioral, BrandArchetypeDetail, BrandStrategyCard } from '../types';
 import {
   User, Brain, Activity, Target, TrendingUp, TrendingDown, Users, Heart, Diamond, CheckCircle2, DollarSign, Scan, Search, Radar, Sparkles, Crown, ZapOff, Info, Layers, ShieldAlert, CheckCircle, FileText, BarChart, Globe, Zap, Smile, LayoutTemplate, Briefcase, MapPin, GraduationCap, Coins, Users2, Rocket,
-  Calendar, BookOpen, Trophy, Lightbulb, RefreshCw, ShieldCheck, ChevronDown, ChevronUp, Edit2, Check, ArrowRight, BrainCircuit, Fingerprint, Headphones, Anchor, Link2, BoxSelect, Sun, Compass, Zap as OutlawIcon, Palette, HandHeart, Bot, MousePointerClick, Database, Swords, Clock, TrendingUp as UpliftIcon, AlertTriangle, PlayCircle, MousePointer2, BarChart3, Lock, Pencil, Microscope, Ear, LayoutGrid, Eye, FileDown
+  Calendar, BookOpen, Trophy, Lightbulb, RefreshCw, ShieldCheck, ChevronDown, ChevronUp, Edit2, Check, ArrowRight, BrainCircuit, Fingerprint, Headphones, Anchor, Link2, BoxSelect, Sun, Compass, Zap as OutlawIcon, Palette, HandHeart, Bot, MousePointerClick, Database, Swords, Clock, TrendingUp as UpliftIcon, AlertTriangle, PlayCircle, MousePointer2, BarChart3, Lock, Pencil, Microscope, Ear, LayoutGrid, Eye, FileDown, Loader2
 } from 'lucide-react';
 import {
   Radar as RechartsRadar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, Legend
 } from 'recharts';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
 import ErrorBoundary from './ErrorBoundary';
 import { StrategyView } from './StrategyView';
 
@@ -23,6 +21,7 @@ interface AnalysisViewProps {
   data: AnalysisResult;
   onUpdateData: (data: AnalysisResult) => void;
   onGenerateStrategy: () => void;
+  onExport: () => Promise<void>;
   isStrategizing: boolean;
   activeMode: string;
 }
@@ -830,116 +829,27 @@ const ValueUnlockingCard: React.FC<{
   );
 };
 
-export const PdfDiagnosticPage: React.FC<{ item: DiagnosticItem, index: number }> = ({ item, index }) => {
-  const s = normalizeScore(item.score);
-  const tier = getRubricTier(s);
-  const color = getTierColorHex(tier);
 
-  return (
-    <div id={`pdf-diagnostic-${index}`} className="bg-white p-16 w-full max-w-4xl mx-auto mb-20 border border-slate-100 shadow-sm relative overflow-hidden" style={{ minHeight: '1100px' }}>
-      {/* Background accent */}
-      <div className="absolute top-0 left-0 w-2 h-full" style={{ backgroundColor: color }}></div>
-      <div className="absolute top-0 left-0 w-full h-2" style={{ backgroundColor: color }}></div>
+// PdfDiagnosticPage removed - using isolated component in PdfSystem
 
-      {/* Content Container */}
-      <div className="space-y-10 relative z-10">
 
-        {/* Metric Header */}
-        <div className="border-b border-slate-100 pb-8 flex justify-between items-end">
-          <div className="space-y-3">
-            <div className="text-slate-400 text-sm font-bold uppercase tracking-widest flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs text-slate-500">
-                {index + 1}
-              </span>
-              Diagnostic Metric
-            </div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight leading-tight uppercase">
-              {item.metric}
-            </h1>
-          </div>
-          <div className="text-right">
-            <div className="text-5xl font-black mb-1" style={{ color: color }}>{s}<span className="text-2xl text-slate-300">/100</span></div>
-            <div className="text-sm font-bold uppercase tracking-widest px-3 py-1 rounded-full inline-block" style={{ color: color, backgroundColor: `${color}10` }}>
-              {tier} Performance
-            </div>
-          </div>
-        </div>
-
-        {/* Deep Analysis */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-            <Microscope size={16} /> Analysis & Interpretation
-          </h3>
-          <p className="text-lg text-slate-700 leading-relaxed font-medium">
-            {item.commentary}
-          </p>
-        </div>
-
-        {/* Sub-Insights / Observations */}
-        <div className="bg-slate-50 rounded-2xl p-8 border border-slate-100">
-          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
-            <Eye size={16} /> Key Observations
-          </h3>
-          <div className="grid grid-cols-1 gap-4">
-            {item.subInsights.map((insight, idx) => (
-              <div key={idx} className="flex gap-4 items-start">
-                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2.5 flex-shrink-0"></div>
-                <p className="text-base text-slate-600 leading-relaxed">{insight}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Why / Fix / Impact Grid */}
-        <div className="grid grid-cols-1 gap-8 pt-4">
-          {/* Why It Matters */}
-          <div className="flex gap-5">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl h-fit">
-              <Info size={24} />
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Why It Matters</h4>
-              <p className="text-base text-slate-600 leading-relaxed">
-                {item.whyItMatters}
-              </p>
-            </div>
-          </div>
-
-          {/* Recommendation */}
-          <div className="flex gap-5">
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl h-fit">
-              <CheckCircle size={24} />
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-sm font-black text-emerald-700 uppercase tracking-widest">Strategic Recommendation</h4>
-              <p className="text-base text-slate-800 font-bold leading-relaxed">
-                {item.recommendation}
-              </p>
-            </div>
-          </div>
-
-          {/* Business Impact */}
-          <div className="flex gap-5">
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl h-fit">
-              <TrendingUp size={24} />
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-sm font-black text-indigo-700 uppercase tracking-widest">Projected Business Impact</h4>
-              <p className="text-base text-slate-600 leading-relaxed italic">
-                {item.impact}
-              </p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  );
-};
-
-export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, onGenerateStrategy, isStrategizing, activeMode }) => {
+export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, onGenerateStrategy, onExport, isStrategizing, activeMode }) => {
+  console.log("ANTIGRAVITY_FIX_V2: AnalysisView mounted", { hookCurDefined: true });
   const [activeTab, setActiveTab] = useState("scorecard");
-  const [isPdfMode, setIsPdfMode] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      await onExport();
+    } catch (e) {
+      console.error("Export failed", e);
+      alert("Export failed. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
 
   const diagnostics = data.adDiagnostics || [];
 
@@ -983,104 +893,35 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
     if (currIdx > 0) setActiveTab(tabs[currIdx - 1].id);
   };
 
-  const handleDownloadPdf = async () => {
-    setIsPdfMode(true);
-    // Wait for render
-    await new Promise(resolve => setTimeout(resolve, 500));
 
-    try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      const addHeaderFooter = (doc: jsPDF, pageNum: number, title: string) => {
-        doc.setFontSize(8);
-        doc.setTextColor(150);
-        doc.text("StrataPilot AI Analysis", 10, 10);
-        doc.text(title, pageWidth - 10, 10, { align: 'right' });
-        doc.text(`Page ${pageNum}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-      };
-
-      // --- PAGE 1: SCORECARD ---
-      const scorecardEl = document.getElementById('pdf-scorecard');
-      if (scorecardEl) {
-        const canvas = await html2canvas(scorecardEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
-        const imgData = canvas.toDataURL('image/png');
-        const imgHeight = (canvas.height * pageWidth) / canvas.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
-        addHeaderFooter(pdf, 1, "SCORECARD");
-      }
-
-      // --- PAGE 2: ROI ---
-      const roiEl = document.getElementById('pdf-roi');
-      if (roiEl) {
-        pdf.addPage();
-        const canvas = await html2canvas(roiEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
-        const imgData = canvas.toDataURL('image/png');
-        const imgHeight = (canvas.height * pageWidth) / canvas.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
-        addHeaderFooter(pdf, 2, "ROI UPLIFT");
-      }
-
-      // --- PAGE 3+: DIAGNOSTICS ---
-      for (let i = 0; i < diagnostics.length; i++) {
-        const diagEl = document.getElementById(`pdf-diagnostic-${i}`);
-        if (diagEl) {
-          pdf.addPage();
-          const canvas = await html2canvas(diagEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
-          const imgData = canvas.toDataURL('image/png');
-          const imgHeight = (canvas.height * pageWidth) / canvas.width;
-          pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
-          addHeaderFooter(pdf, 3 + i, `DIAGNOSTICS - ${diagnostics[i].metric}`);
-        }
-      }
-
-      let pageOffset = 3 + diagnostics.length;
-
-      // --- BRAND STRATEGY ---
-      const stratEl = document.getElementById('pdf-brand-strategy');
-      if (stratEl) {
-        pdf.addPage();
-        const canvas = await html2canvas(stratEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
-        const imgData = canvas.toDataURL('image/png');
-        const imgHeight = (canvas.height * pageWidth) / canvas.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
-        addHeaderFooter(pdf, pageOffset++, "BRAND STRATEGY");
-      }
-
-      // --- BRAND ARCHETYPE ---
-      const archEl = document.getElementById('pdf-brand-archetype');
-      if (archEl) {
-        pdf.addPage();
-        const canvas = await html2canvas(archEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
-        const imgData = canvas.toDataURL('image/png');
-        const imgHeight = (canvas.height * pageWidth) / canvas.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
-        addHeaderFooter(pdf, pageOffset++, "BRAND ARCHETYPE");
-      }
-
-      // --- STRATEGY PLAN ---
-      const planEl = document.getElementById('pdf-strategy-plan');
-      if (planEl) {
-        pdf.addPage();
-        const canvas = await html2canvas(planEl, { scale: 2, useCORS: true, logging: false, backgroundColor: '#1e293b' });
-        const imgData = canvas.toDataURL('image/png');
-        const imgHeight = (canvas.height * pageWidth) / canvas.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, Math.min(imgHeight, pageHeight));
-        addHeaderFooter(pdf, pageOffset++, "STRATEGIC EXECUTION PLAN");
-      }
-
-      pdf.save(`StrataPilot-Report-${new Date().toISOString().split('T')[0]}.pdf`);
-    } catch (err) {
-      console.error("PDF Generation failed:", err);
-      alert("Failed to generate PDF. Please try again.");
-    } finally {
-      setIsPdfMode(false);
-    }
+  // Calculations for ROI Uplift (Restored)
+  const getDiagScore = (idx: number) => {
+    const d = data.adDiagnostics?.[idx];
+    return d ? normalizeScore(d.score) : 50;
   };
 
+  const overallScore = data.adDiagnostics
+    ? data.adDiagnostics.reduce((acc, d) => acc + normalizeScore(d.score), 0) / data.adDiagnostics.length
+    : 50;
+
+  const upliftFactor = 1.25;
+  const constrainedRoi = Math.min(10, (overallScore / 10) * upliftFactor);
+
+  const hookCur = getDiagScore(1);
+  const hookPot = Math.min(100, hookCur * 1.4);
+  const vtrCur = getDiagScore(5);
+  const vtrPot = Math.min(100, vtrCur * 1.3);
+  const ctrCur = getDiagScore(4) / 10;
+  const ctrPot = Math.min(10, ctrCur * 1.5);
+  const dropCur = 80 - (getDiagScore(0) * 0.5);
+  const dropPot = Math.max(10, dropCur * 0.7);
+  const clarCur = getDiagScore(6) / 10;
+  const clarPot = Math.min(10, clarCur * 1.3);
+  const visCur = getDiagScore(3) / 10;
+  const visPot = Math.min(10, visCur * 1.4);
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-6 lg:p-10 font-sans text-slate-900 pb-32">
+    <div className="w-full bg-[#f8fafc] p-6 lg:p-10 font-sans text-slate-900 pb-32 rounded-3xl shadow-sm border border-slate-200">
       {/* HEADER & CONTROLS */}
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
         <div>
@@ -1095,8 +936,8 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={handleDownloadPdf} disabled={isPdfMode} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-indigo-600 transition-colors shadow-lg active:scale-95 disabled:opacity-50">
-            {isPdfMode ? <span className="animate-pulse">Generating PDF...</span> : <><FileDown size={16} /> Export Report</>}
+          <button onClick={handleExport} disabled={isExporting} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-indigo-600 transition-colors shadow-lg active:scale-95 disabled:opacity-50 min-w-[160px] justify-center">
+            {isExporting ? <><Loader2 className="animate-spin" size={16} /> Downloading...</> : <><FileDown size={16} /> Export Report</>}
           </button>
         </div>
       </div>
@@ -1310,79 +1151,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
         }
 
         {/* PDF GENERATION CONTAINER (Off-screen capture layer) */}
-        {
-          isPdfMode && (
-            <div className="fixed top-0 left-[-9999px] width-[210mm] z-[9999] bg-white pointer-events-none opacity-0">
-              {/* PAGE 1: SCORECARD */}
-              <div id="pdf-scorecard" className="p-8 bg-white min-h-[1100px] flex flex-col justify-center">
-                <div className="bg-slate-900 text-white p-4 rounded-full text-center shadow-md mb-8 w-full">
-                  <h4 className="text-sm font-black uppercase tracking-[0.3em]">SCORECARD</h4>
-                </div>
-                <div className="flex-grow flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height={600}>
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
-                      <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                      <RechartsRadar name="Benchmark Score" dataKey="B" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" fill="transparent" />
-                      <RechartsRadar name="Your Score" dataKey="A" stroke="#4f46e5" strokeWidth={3} fill="#4f46e5" fillOpacity={0.15} />
-                      <Legend />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="text-center mt-8">
-                  <h1 className="text-6xl font-black text-slate-900">{avgScore}</h1>
-                  <div className="text-xl font-bold text-indigo-600 uppercase tracking-widest">{avgTier}</div>
-                </div>
-              </div>
 
-              {/* PAGE 2: ROI */}
-              <div id="pdf-roi" className="p-8 bg-white min-h-[1100px] flex flex-col justify-center">
-                <div className="bg-slate-900 text-white p-4 rounded-full text-center shadow-md mb-12 w-full">
-                  <h4 className="text-sm font-black uppercase tracking-[0.3em]">ROI UPLIFT</h4>
-                </div>
-                <div className="grid grid-cols-2 gap-8 mb-12">
-                  <ValueUnlockingCard title="Hook Rate" icon={Eye} current={hookCur} potential={hookPot} unit="%" definition="Attention capture" science="Salience" />
-                  <ValueUnlockingCard title="Completion" icon={PlayCircle} current={vtrCur} potential={vtrPot} unit="%" definition="Retention" science="Narrative" />
-                  <ValueUnlockingCard title="CTR" icon={MousePointerClick} current={ctrCur} potential={ctrPot} unit="%" definition="Conversion" science="Action Bias" />
-                  <ValueUnlockingCard title="Bounce Rate" icon={ZapOff} current={dropCur} potential={dropPot} unit="%" isNegative definition="Rejection" science="Cognitive Load" />
-                </div>
-                <div className="bg-slate-900 text-white p-12 rounded-3xl text-center">
-                  <h3 className="text-lg font-black uppercase tracking-widest text-indigo-400 mb-2">Projected ROAS Impact</h3>
-                  <div className="text-8xl font-black text-white mb-6">{constrainedRoi.toFixed(1)}x</div>
-                  <p className="text-slate-400 max-w-lg mx-auto">Based on implementation of all {diagnostics.length} strategic recommendations.</p>
-                </div>
-              </div>
-
-              {/* PAGE 3+: DIAGNOSTICS */}
-              {diagnostics.map((item, idx) => (
-                <PdfDiagnosticPage key={idx} item={item} index={idx} />
-              ))}
-
-              {/* PAGE 4: BRAND STRATEGY */}
-              {data.brandStrategyWindow && (
-                <div id="pdf-brand-strategy" className="p-8 bg-white min-h-[1100px] flex flex-col">
-                  <BrandStrategyWindow cards={data.brandStrategyWindow} onUpdate={() => { }} />
-                </div>
-              )}
-
-              {/* PAGE 5: BRAND ARCHETYPE */}
-              {data.brandArchetypeDetail && (
-                <div id="pdf-brand-archetype" className="p-8 bg-white min-h-[1100px] flex flex-col">
-                  <BrandArchetypeMatrix detail={data.brandArchetypeDetail} onUpdate={() => { }} />
-                </div>
-              )}
-
-              {/* PAGE 6: STRATEGY PLAN */}
-              {data.campaignStrategy && (
-                <div id="pdf-strategy-plan" className="p-8 bg-[#0f172a] min-h-[1100px] flex flex-col text-white">
-                  <StrategyView strategy={data.campaignStrategy} />
-                </div>
-              )}
-
-            </div>
-          )
-        }
 
       </div >
 
