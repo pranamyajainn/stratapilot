@@ -36,7 +36,13 @@ Analyze the provided draft and output a JSON evaluation:
   "overallAssessment": "<brief overall assessment>"
 }
 
-Be thorough but fair. Flag real issues, not nitpicks.`;
+**CRITICAL FAIL CRITERIA (Mark validationPassed: false if ANY are met):**
+1. **Brevity**: Any major section (commentary) is under 100 words.
+2. **Structure**: Fails to follow the "Diagnosis -> Interpretation -> Recommendation" paragraph structure.
+3. **Shallowness**: Uses generic 1-sentence explanations.
+
+Be rigorous. If it looks like a summary, FAIL IT.
+`;
 
 // =====================================================
 // LLM ORCHESTRATOR
@@ -253,8 +259,50 @@ ${userPrompt.substring(0, 1000)}`;
 
         console.log(`[LLMOrchestrator] Critique complete: rigor=${critique.data?.rigorScore}, passed=${critique.data?.validationPassed}`);
 
-        // For now, return the draft (merging logic can be enhanced)
-        // In production, you might want to re-run if validation fails
+        // --- REPAIR PASS (Active Correction) ---
+        if (critique.data && !critique.data.validationPassed) {
+            console.warn('[LLMOrchestrator] ❌ Validation FAILED. Initiating REPAIR pass...');
+
+            const repairBudget = this.costGovernor.checkBudget(draftModel);
+            if (repairBudget.allowed) {
+                const repairPrompt = `
+**CRITICAL FEEDBACK - REWRITE REQUIRED**
+Your previous output FAILED quality control.
+Issues detected:
+${critique.data.gaps?.map(g => `- ${g}`).join('\n') || 'Generic failure'}
+
+**INSTRUCTION:**
+Rewrite the content to address these gaps.
+YOU MUST MEET THE MINIMUM WORD COUNT (150+ words/section).
+DO NOT REPEAT THE ERRORS.
+`;
+                const repair = await this.groqClient.chatCompletion<T>(
+                    draftModel,
+                    systemPrompt,
+                    userPrompt + "\n\n" + repairPrompt, // Append feedback to context
+                    {
+                        temperature: 0.5, // Slightly higher temp for rewrite
+                        maxTokens: options.maxTokens,
+                        responseFormat: options.responseFormat,
+                    }
+                );
+
+                this.costGovernor.recordUsage(draftModel);
+
+                if (repair.success && repair.data) {
+                    console.log('[LLMOrchestrator] ✅ Repair complete. Using repaired draft.');
+                    return {
+                        draft,
+                        critique,
+                        merged: repair.data as T, // Use REPAIRED data
+                    };
+                }
+            } else {
+                console.warn('[LLMOrchestrator] ⚠️ Repair skipped due to budget constraints.');
+            }
+        }
+
+        // Default: return valid draft or original if repair failed/skipped
         return {
             draft,
             critique,

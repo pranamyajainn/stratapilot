@@ -16,65 +16,28 @@ const getUserId = (req: express.Request): string => {
     return (req.headers['x-user-id'] as string) || 'default-user';
 };
 
-// Start OAuth
-router.get('/auth/google/start', (req, res) => {
-
-    const url = ga4Service.getAuthUrl();
-    res.redirect(url);
-});
-
-// OAuth Callback
-router.get('/auth/google/callback', async (req, res) => {
+// Verify & Connect (Service Account Flow)
+router.post('/verify-access', async (req, res) => {
     try {
-        const { code } = req.query;
+        const userId = getUserId(req);
+        const { propertyId } = req.body;
 
-        const userId = 'default-user'; // FIXME: Use state param to pass user ID back
+        if (!propertyId) throw new Error('Property ID is required');
 
-
-
-        if (!code || typeof code !== 'string') {
-            throw new Error('Invalid code');
-        }
-
-        // We need the user ID here. 
-        // If we are in a redirect flow, we lost the headers.
-        // Usually we store state in a cookie or `state` param.
-        // For simplicity, we'll default to 'default-user' or handle it after redirect.
-        // Ideally, we pass `state=userId` in getAuthUrl. 
-        // Let's rely on a cookie or 'default-user' for this MVP step.
-
-        await ga4Service.handleAuthCallback(code, userId);
-
-        const appUrl = process.env.APP_URL || 'http://localhost:5173';
-        // Redirect back to frontend (Dashboard)
-        res.redirect(`${appUrl}/?ga4=success`);
+        const result = await ga4Service.verifyPropertyAccess(propertyId, userId);
+        res.json(result);
     } catch (error: any) {
-        console.error('OAuth Callback Error:', error);
-        const appUrl = process.env.APP_URL || 'http://localhost:5173';
-        res.redirect(`${appUrl}/?ga4=error&message=${encodeURIComponent(error.message)}`);
+        console.error('GA4 Verification Error:', error.message);
+        res.status(403).json({ error: error.message });
     }
 });
 
-// List Properties
+// List Properties (for SA, might be limited but kept for compatibility)
 router.get('/properties', async (req, res) => {
     try {
         const userId = getUserId(req);
         const properties = await ga4Service.listProperties(userId);
         res.json({ properties });
-    } catch (error: any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Select Property
-router.post('/select', async (req, res) => {
-    try {
-        const userId = getUserId(req);
-        const { propertyId } = req.body;
-        if (!propertyId) throw new Error('Property ID required');
-
-        const result = await ga4Service.selectProperty(userId, propertyId);
-        res.json(result);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

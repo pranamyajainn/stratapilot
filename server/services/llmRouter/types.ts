@@ -200,6 +200,7 @@ export interface TwoPassResponse<T = any> {
         rigorScore: number;
         suggestions: string[];
     }>;
+    repair?: LLMResponse<T>; // Content from repair pass if validation failed
     merged: T;
 }
 

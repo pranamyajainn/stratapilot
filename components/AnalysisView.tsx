@@ -1142,9 +1142,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
                     </div>
                   </div>
                 </div>
-                <button onClick={onGenerateStrategy} disabled={isStrategizing || !!data.campaignStrategy} className="mt-8 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all transform hover:scale-105 flex items-center gap-2 relative z-10 disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center">
-                  <Rocket size={16} /> {isStrategizing ? 'GENERATING...' : data.campaignStrategy ? 'STRATEGY ACTIVE' : 'GENERATE STRATEGY PLAN'}
-                </button>
+
               </div>
             </div>
           )

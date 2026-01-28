@@ -1,32 +1,34 @@
 import axios from 'axios';
-
-const META_APP_ID = process.env.META_APP_ID;
-const META_APP_SECRET = process.env.META_APP_SECRET;
-const META_REDIRECT_URI = process.env.META_REDIRECT_URI || 'http://localhost:3000/api/auth/meta/callback';
 import { updateAccountFetchStatus } from './meta/metaDb.js';
 
-export const getMetaAuthUrl = () => {
-    const scopes = ['ads_read', 'read_insights']; // Permissions needed
-    const encodedRedirectUri = encodeURIComponent(META_REDIRECT_URI || '');
-    return `https://www.facebook.com/v18.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodedRedirectUri}&state=meta_auth&scope=${scopes.join(',')}`;
-};
 
-export const getMetaTokens = async (code: string) => {
+export const verifyToken = async (accessToken: string) => {
     try {
-        const response = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
+        // 1. Validate Token & Get User
+        // Note: Graph API 'me' call verifies the token is valid
+        const meRes = await axios.get('https://graph.facebook.com/v19.0/me', {
+            params: { access_token: accessToken, fields: 'id,name' }
+        });
+
+        // 2. Fetch Ad Accounts (to verify scopes/assets)
+        const accountsRes = await axios.get('https://graph.facebook.com/v19.0/me/adaccounts', {
             params: {
-                client_id: META_APP_ID,
-                redirect_uri: META_REDIRECT_URI,
-                client_secret: META_APP_SECRET,
-                code: code
+                access_token: accessToken,
+                fields: 'id,name,account_id,currency,account_status'
             }
         });
-        return response.data; // { access_token, ... }
+
+        return {
+            valid: true,
+            user: meRes.data,
+            accounts: accountsRes.data.data
+        };
     } catch (error: any) {
-        console.error('Meta Token Exchange Error:', error.response?.data || error.message);
-        throw new Error('Failed to exchange Meta token');
+        console.error('Meta Token Verification Failed:', error.response?.data || error.message);
+        throw new Error('Invalid Meta Access Token or Insufficient Permissions');
     }
 };
+
 
 export const fetchMetaAdsData = async (accessToken: string) => {
 

@@ -276,29 +276,76 @@ const safeGenerate = async <T>(
 };
 
 // --- KNOWLEDGE BASE ---
+
+const ONE_SHOT_DIAGNOSTIC_EXAMPLE = {
+    metric: "Visual Hierarchy",
+    score: 72,
+    benchmark: 65,
+    rubricTier: "Good",
+    subInsights: [
+        "Primary focus established on product hero shot (3s duration)",
+        "Secondary typography layer conflicts with background contrast",
+        "CTA placement follows F-pattern reading path",
+        "Brand assets occupy top-right quadrant consistently",
+        "Negative space implementation guides eye movement effectively"
+    ],
+    commentary: "DIAGNOSIS: The asset establishes a clear initial focal point through high-contrast lighting on the hero product, effectively capturing immediate attention. However, the subsequent visual flow is interrupted by a typographic layer that lacks sufficient luminance contrast against the complex background, creating a moment of cognitive friction for the viewer. \n\nINTERPRETATION: This hierarchy breakdown risks diluting the core value proposition. While the product itself is visible, the supporting claims—which drive the rational conversion argument—are lost in visual noise. For a premium category audience, this lack of polish signals a potential disconnect between the brand's luxury positioning and its execution. The viewer is forced to 'work' to read the message, which increases bounce probability.\n\nRECOMMENDATION: We recommend implementing a 20% opacity scrim behind the text layer to restore legibility without compromising the background texture. Additionally, increasing the scale of the primary headline by 15% will re-establish the intended read-order (Product -> Headline -> CTA), ensuring the narrative sequence lands with strategic impact.",
+    whyItMatters: "Visual hierarchy dictates the speed of information processing. A seamless flow reduces cognitive load, directly correlating with higher retention and conversation rates.",
+    recommendation: "Implement scrim behind text and scale headline +15% to enforcing reading path.",
+    impact: "Expected +12% lift in message comprehension and +5% CTR."
+};
+
 const BASE_KNOWLEDGE = `
-You are StrataPilot, an expert AI Creative Analyst.
-Your role is to analyze observable creative assets (images/videos) and provide a diagnostic based strictly on visible evidence and established marketing principles.
+You are a Senior Strategic Marketing & Brand Consultant with 20+ years of experience, advising Fortune 500 companies, global brands, and PE-backed enterprises.
 
-**EPISTEMIC GUARDRAILS (CRITICAL):**
+You do NOT summarize.
+You do NOT write bullet-point overviews.
+You do NOT optimize for brevity.
+
+Your output is intended for:
+* C-suite executives
+* Board-level reviews
+* Paid client deliverables
+* Formal PDF reports
+
+Assume the reader is intelligent, time-constrained, and expects **depth, rigor, and clarity**.
+
+**GLOBAL OUTPUT STANDARD (APPLIES TO ALL SECTIONS)**
+For every section, you MUST comply with the following:
+
+1. **Minimum length**
+   * **150–250 words per section**
+   * No exceptions. One paragraph is insufficient.
+
+2. **Structure (MANDATORY)**
+   Each section must contain **at least 3 paragraphs**:
+   * Paragraph 1: Contextual diagnosis (what is happening and why it matters)
+   * Paragraph 2: Strategic interpretation (implications, risks, opportunities)
+   * Paragraph 3: Expert recommendation (how a senior consultant would advise action)
+
+3. **Tone & Language**
+   * Professional, advisory, precise
+   * Use business, marketing, and brand strategy terminology
+   * Write as if this will be **quoted in a board deck**
+
+4. **Prohibited Behaviors**
+   * ❌ One-line or two-line answers
+   * ❌ "In summary", "Overall", or filler transitions
+   * ❌ Bullet-only responses
+   * ❌ Generic advice ("add visuals", "improve clarity") without explanation
+
+**DEPTH OVERRIDE CLAUSE (CRITICAL)**
+If any instruction conflicts with depth (e.g. "be concise", "short answer", "summary"):
+➡ **Depth takes priority.**
+➡ Ignore brevity instructions entirely.
+
+**EPISTEMIC GUARDRAILS:**
 1.  **OBSERVABLES ONLY**: You must describe ONLY what is visible or audible in the provided asset.
-2.  **NO EXTERNAL DATA**: Do not reference real-time market data, specific competitor ad spend, CPA, known conversion rates, private campaign metrics, or "industry secrets". You do not have access to this data.
-3.  **NO INVENTION**: If a strategic insight cannot be inferred from the creative itself, state "Cannot be determined from the creative alone." Do not bridge gaps with guesses.
-4.  **QUALITATIVE SCORES ONLY**: All scores (0-100) are qualitative assessments of creative execution against best practices, NOT statistical predictions of future performance.
-
-**LANGUAGE CONTROL:**
-- REPLACE "will convert" WITH "likely to resonate".
-- REPLACE "drives sales" WITH "aligns with conversion best practices".
-- REPLACE "predicted CTR" WITH "engagement potential".
-- USE "suggests", "indicates", "appears designed to".
-- AVOID "certainly", "guaranteed", "proven to".
-
-**PROJECT SPECIFIC CONTEXT:**
-- If the creative is for **Casagrand Casablanca**, note that the architecture and theme are strictly **ROMAN**.
-
-**DIAGNOSTIC CRITERIA:**
-You will evaluate the creative against key performance parameters including immediate memory retention, brand linkage, emotional mapping, and clarity of proposition.
-Provide only diagnostics that are relevant and observable in the creative.
+2.  **QUALITATIVE SCORES ONLY**: All scores (0-100) are qualitative assessments of creative execution against best practices.
+3.  **LANGUAGE CONTROL**:
+    - REPLACE "will convert" WITH "likely to resonate".
+    - REPLACE "drives sales" WITH "aligns with conversion best practices".
+    - USE "suggests", "indicates", "appears designed to".
 
 **REQUIRED DIAGNOSTICS (MUST OUTPUT EXACTLY THESE 12 IN ORDER):**
 1. Immediate Attention (Hook)
@@ -316,14 +363,15 @@ Provide only diagnostics that are relevant and observable in the creative.
 `;
 
 const STRATEGY_SYSTEM_INSTRUCTION = `
-You are StrataPilot's Chief Strategist.
-Based *strictly* on the provided creative analysis, propose a logical campaign strategy.
+You are StrataPilot's Chief Strategist, a Senior Consultant with 20+ years of experience.
+Based *strictly* on the provided creative analysis, propose a logical, deep, and rigorous campaign strategy.
 
-**CONSTRAINTS:**
-1.  **HYPOTHETICAL ONLY**: Frame all "successMetrics" as *proposed KPIs to track*, not guaranteed outcomes.
-2.  **NO GUARANTEES**: Do not promise specific ROAS or ROI figures.
-3.  **LOGICAL FLOW**: Ensure budget allocation and channel selection logically follow from the creative's format and implied audience.
-4.  **Output strictly valid JSON.**
+**MANDATE:**
+- **Depth**: Output must be substantial and detailed. Minimum 200 words per strategic section.
+- **Hypothetical KPIs**: Frame all "successMetrics" as *proposed KPIs to track*.
+- **No Guarantees**: Do not promise specific ROAS or ROI figures.
+- **Logical Flow**: Ensure budget allocation and channel selection logically follow from the creative's format and implied audience.
+- **Format**: Output strictly valid JSON.
 `;
 
 // --- SCHEMAS ---
@@ -592,13 +640,24 @@ Strictly follow the JSON schema provided.
 5.  **Competitive Context**: If competitive context is provided above, use it to explain over-conformity risks, saturation patterns, and differentiation opportunities in the adDiagnostics commentary.
 
 **OUTPUT REQUIREMENTS:**
-- Be concise, objective, and analyst-toned.
-- Avoid marketing fluff.
-- If a field requires data you cannot observe (e.g., 'buyingHabits'), infer strictly from the *target audience implied by the creative's content*, and qualify it as an inference.
-- If competitive context is present, include comparative observations in the 'commentary' fields where relevant.
+- **Consulting Standard**: Output must be detailed, rigorous, and ready for a C-suite presentation.
+- **No Fluff**: Avoid generic marketing jargon. Use precise strategic terminology.
+- **Inference**: If a field requires data you cannot observe, infer strictly from the *target audience implied by the creative's content*, and qualify it as an inference.
+- **Competitive Context**: If competitive context is present, include deep comparative observations.
 `;
 
-    parts.push({ text: `Analyze this creative. User Context: ${textContext}` });
+    parts.push({
+        text: `
+Analyze this creative. User Context: ${textContext}
+
+**CRITICAL INSTRUCTION:**
+- **Depth**: Diagnostic commentary must be **150+ words**.
+- **Assessment**: Use a 3-paragraph structure (Diagnosis, Interpretation, Recommendation).
+- **No Brevity**: Do not summarize. Explain your reasoning fully.
+
+**ONE-SHOT EXAMPLE (FOLLOW THIS LENGTH & DEPTH):**
+${JSON.stringify([ONE_SHOT_DIAGNOSTIC_EXAMPLE], null, 2)}
+` });
 
     return safeGenerate<AnalysisResult>(
         "analyzeCollateral",
@@ -636,6 +695,11 @@ Generate strategy for: ${JSON.stringify(analysis)}
 Use the User Context to effectively tailor the Key Pillars and Channel Selection.
 If the budget is low, avoid TV/OOH.
 If the audience is specific, target channels they use.
+
+**CRITICAL OUTPUT RULES:**
+- **Depth**: Key Pillars and Messages must be strategic and detailed (not just keywords).
+- **Rationale**: Explain *why* these channels were selected in the Budget Allocation section.
+- **Word Count**: Ensure the JSON content fields are substantial (no 1-line strategies).
 `;
 
     return safeGenerate<CampaignStrategy>(
@@ -844,10 +908,12 @@ Return a JSON object with these exact fields:
     ... (11 more diagnostics)
   ],
   "brandAnalysis": { "consumerInsight": "...", "functionalBenefit": "...", "emotionalBenefit": "...", "brandPersonality": "...", "reasonsToBelieve": [...] },
-  "brandStrategyWindow": [ { "title": "...", "subtitle": "...", "content": "..." }, ... ],
+  "brandStrategyWindow": [ { "title": "Brand Purpose", "subtitle": "Why we exist", "content": "..." }, ... ],
   "brandArchetypeDetail": { "archetype": "...", "value": "...", "quote": "...", "reasoning": "..." },
   "roiMetrics": { "hookScore": 72, "clarityScore": 78, "predictedVtr": 65, "roiUplift": 15 }
 }
+
+CRITICAL: You MUST generate exactly 10 items for 'brandStrategyWindow' covering all key brand dimensions (Purpose, Promise, Personality, etc.). DO NOT OMIT THIS.
 `;
 
     try {
@@ -1085,7 +1151,12 @@ const downloadFile = async (url: string, destPath: string): Promise<string> => {
         try {
             if (ytdl.validateURL(url)) {
                 console.log(`[DOWNLOAD] Detected YouTube URL: ${url}`);
-                const stream = ytdl(url, { quality: 'lowest' }); // 'lowest' for speed/size, typically sufficient for AI
+                // Use a persistent agent to prevent 'player-script.js' leaks
+                const agent = ytdl.createAgent(JSON.parse(fs.readFileSync('cookies.json', 'utf8') || '[]'));
+                const stream = ytdl(url, {
+                    quality: 'lowest',
+                    agent // Pass the agent
+                });
                 stream.pipe(fs.createWriteStream(destPath))
                     .on('finish', () => onFinish('video/mp4'))
                     .on('error', onError);

@@ -1,6 +1,7 @@
 import express from 'express';
 import { TokenManager } from '../services/meta/tokenManager.js';
 import { MetaService } from '../services/meta/metaService.js';
+import { verifyToken } from '../services/metaAds.js';
 import { SyncEngine } from '../services/meta/syncEngine.js';
 import { SyncMode } from '../services/meta/types.js';
 import { getMetaDb } from '../services/meta/metaDb.js';
@@ -17,86 +18,46 @@ const getSyncEngine = () => {
 
 // -- AUTH --
 
-router.get('/auth/meta/login', (req, res) => {
-    const state = TokenManager.generateState();
-
-    // Store state in a secure, httpOnly cookie (valid for 5 mins)
-    res.cookie('meta_auth_state', state, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 5 * 60 * 1000
-    });
-
-    const url = TokenManager.getAuthUrl(state);
-    res.redirect(url);
-});
-
-router.get('/auth/meta/callback', async (req, res) => {
-    const code = req.query.code as string;
-    const receivedState = req.query.state as string;
-    const storedState = req.cookies?.meta_auth_state;
-    const userId = 'default_user'; // TODO: Get from session/auth middleware
-
-    // Clear state cookie
-    res.clearCookie('meta_auth_state');
-
-    // AUTH VALIDATION
-    if (!code) return res.status(400).send('No code provided');
-
-    if (!receivedState || !storedState || !TokenManager.validateState(receivedState, storedState)) {
-        console.error('[META AUTH] CSRF Warning: State mismatch or missing');
-        return res.status(403).send('Security check failed (CSRF)');
-    }
-
+// Verify & Connect (Direct Token Flow)
+router.post('/meta/verify-access', async (req, res) => {
     try {
-        // Exchange Code
-        const tokenData = await TokenManager.exchangeCodeForToken(code);
+        const { token } = req.body;
+        const userId = 'default_user'; // TODO: Get from session/auth middleware
 
-        // Upgrade to Long-Lived
-        const longToken = await TokenManager.getLongLivedToken(tokenData.access_token);
+        if (!token) return res.status(400).json({ error: 'Token is required' });
 
-        // Store
-        // Long-lived tokens usually last ~60 days. We store expiry to schedule refreshes.
-        TokenManager.storeUserToken(userId, longToken, 60 * 24 * 60 * 60); // Approx 60 days
+        // 1. Verify Token
+        const verification = await verifyToken(token);
 
-        // Discover Ad Accounts immediately
-        const service = new MetaService(longToken);
-        const accounts = await service.getAdAccounts();
+        // 2. Store User Token
+        // Expiry logic: Long-lived tokens are ~60 days. Assume it's new or valid for at least 30 days.
+        // We could fetch debug_token to get expiry, but for now, let's assume valid.
+        TokenManager.storeUserToken(userId, token, 60 * 24 * 60 * 60);
 
+        // 3. Store Ad Accounts
         const db = getMetaDb();
         const stmt = db.prepare(`
-            INSERT OR REPLACE INTO ad_accounts (id, account_id, name, currency, timezone_name, timezone_id, account_status, disable_reason, linked_by_user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO ad_accounts (id, account_id, name, currency, account_status, linked_by_user_id)
+            VALUES (?, ?, ?, ?, ?, ?)
         `);
-
+        // Note: verifyToken returns list of accounts from /me/adaccounts
         const insertTx = db.transaction((accs) => {
             for (const acc of accs) {
-                stmt.run(acc.id, acc.account_id, acc.name, acc.currency, acc.timezone_name, acc.timezone_id, acc.account_status, acc.disable_reason, userId);
+                // acc is like { id: 'act_123', account_id: '123', name: '...', ... }
+                // We map to our schema
+                stmt.run(acc.id, acc.account_id, acc.name, acc.currency, acc.account_status, userId);
             }
         });
-        insertTx(accounts);
+        insertTx(verification.accounts);
 
-        // Send success page that closes itself and notifies frontend
-        const appUrl = process.env.APP_URL || 'http://localhost:5173'; // Default to Vite port
-        res.send(`
-            <script>
-                try {
-                    window.opener.postMessage({ type: 'META_AUTH_SUCCESS', token: '${longToken}' }, '${appUrl}');
-                    setTimeout(() => window.close(), 500);
-                } catch (e) {
-                    console.error('postMessage failed:', e);
-                    window.close();
-                }
-            </script>
-            <h1>Connected!</h1>
-            <p>You can close this window now.</p>
-        `);
+        res.json({ success: true, accounts: verification.accounts });
 
-    } catch (error) {
-        console.error('Meta Callback Error:', error);
-        res.status(500).send('Authentication failed');
+    } catch (error: any) {
+        console.error('Meta Verification Error:', error.message);
+        res.status(403).json({ error: error.message });
     }
 });
+
 
 // -- API --
 

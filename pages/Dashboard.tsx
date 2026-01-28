@@ -21,18 +21,70 @@ const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, onClose
 
     if (!isOpen) return null;
 
-    const handleComplete = () => {
-        if (type === 'GA4' && !propertyId) {
-            alert("Please provide your GA4 Property ID");
-            return;
+    const handleComplete = async () => {
+        if (type === 'GA4') {
+            if (!propertyId) {
+                alert("Please provide your GA4 Property ID");
+                return;
+            }
+            setIsProcessing(true);
+            try {
+                const res = await fetch('/api/ga4/verify-access', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-user-id': 'default-user' // Matches backend default
+                    },
+                    body: JSON.stringify({ propertyId })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Verification failed');
+                }
+
+                alert(`Success! Connected to property: ${data.property?.displayName || propertyId}`);
+                onSuccess();
+                onClose();
+            } catch (err: any) {
+                console.error("Connection failed:", err);
+                alert(`Connection Failed: ${err.message}. Please ensure the Service Account email has been added to the Property.`);
+            } finally {
+                setIsProcessing(false);
+            }
+        } else {
+            // Meta Connection Logic (Direct Token)
+            if (!propertyId) {
+                alert("Please provide a valid Meta System User Access Token");
+                return;
+            }
+            setIsProcessing(true);
+            try {
+                const res = await fetch('/api/meta/verify-access', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ token: propertyId }) // Reusing propertyId state for token
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Verification failed');
+                }
+
+                alert(`Success! Connected to Meta Business Account. Found ${data.accounts?.length || 0} Ad Accounts.`);
+                onSuccess();
+                onClose();
+            } catch (err: any) {
+                console.error("Meta Connection failed:", err);
+                alert(`Connection Failed: ${err.message}. Please check your token permissions.`);
+            } finally {
+                setIsProcessing(false);
+            }
         }
-        // WARNING: This is a simulation. No actual GA4/Meta connection is made.
-        setIsProcessing(true);
-        setTimeout(() => {
-            onSuccess();
-            onClose();
-            setIsProcessing(false);
-        }, 1500);
     };
 
     const copyToClipboard = (text: string) => {
@@ -110,32 +162,33 @@ const ConnectionModal: React.FC<ConnectionModalProps> = ({ type, isOpen, onClose
                                     <>
                                         <div className="flex items-start gap-3">
                                             <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">1</div>
-                                            <p className="text-xs text-slate-600">Open <strong>Meta Business Settings → Users → Partners</strong></p>
+                                            <p className="text-xs text-slate-600">Go to <strong>Business Settings → Users → System Users</strong></p>
                                         </div>
                                         <div className="flex items-start gap-3">
                                             <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">2</div>
-                                            <p className="text-xs text-slate-600">Click <strong>“Add Partner”</strong></p>
+                                            <p className="text-xs text-slate-600">Click <strong>“Add”</strong>, name it "StrataPilot", role: <strong>Admin</strong></p>
                                         </div>
                                         <div className="flex items-start gap-3">
                                             <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">3</div>
                                             <div className="flex-1">
-                                                <p className="text-xs text-slate-600 mb-2">Enter our BM ID:</p>
-                                                <div className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg group">
-                                                    <code className="text-[10px] text-indigo-600 font-mono flex-1">192837465001</code>
-                                                    <button onClick={() => copyToClipboard('192837465001')} className="p-1 hover:bg-slate-100 rounded">
-                                                        <Copy size={12} className="text-slate-400" />
-                                                    </button>
-                                                </div>
+                                                <p className="text-xs text-slate-600 mb-2">Click <strong>"Generate New Token"</strong>, select App, and check:</p>
+                                                <ul className="text-[10px] text-slate-500 list-disc ml-4 space-y-0.5 mb-2">
+                                                    <li>ads_read</li>
+                                                    <li>read_insights</li>
+                                                </ul>
                                             </div>
                                         </div>
                                         <div className="flex items-start gap-3">
                                             <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-[10px] font-bold border border-slate-200 flex-shrink-0 mt-0.5">4</div>
                                             <div className="flex-1">
-                                                <p className="text-xs text-slate-600 mb-1">Grant access to:</p>
-                                                <ul className="text-[11px] text-slate-500 list-disc ml-4 space-y-0.5">
-                                                    <li>Ad Accounts → View Performance</li>
-                                                    <li>Page Insights (optional)</li>
-                                                </ul>
+                                                <p className="text-xs text-slate-600 mb-2">Paste the <strong>Access Token</strong> below:</p>
+                                                <input
+                                                    type="text"
+                                                    value={propertyId}
+                                                    onChange={(e) => setPropertyId(e.target.value)}
+                                                    placeholder="EAAB..."
+                                                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-100 outline-none font-mono"
+                                                />
                                             </div>
                                         </div>
                                     </>

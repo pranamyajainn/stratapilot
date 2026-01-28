@@ -25,6 +25,7 @@ debug_models.ts
 *.sln
 *.sw?
 .env
+service-account-key.json
 
 # Insight Cache Database
 server/data/

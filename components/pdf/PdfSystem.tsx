@@ -109,8 +109,7 @@ export const PdfSystem = forwardRef<PdfSystemHandle, PdfSystemProps>(({ data }, 
                 // 2. SCORECARD
                 await captureAndAddPage('pdf-scorecard', 'EXECUTIVE SCORECARD', pageCounter++);
 
-                // 3. ROI UPLIFT
-                await captureAndAddPage('pdf-roi', 'ROI UPLIFT PROJECTION', pageCounter++);
+                // 3. ROI UPLIFT (Moved to end to match UI flow)
 
                 // 4. DIAGNOSTICS (Loop)
                 for (let i = 0; i < diagnostics.length; i++) {
@@ -126,6 +125,9 @@ export const PdfSystem = forwardRef<PdfSystemHandle, PdfSystemProps>(({ data }, 
                 if (data.brandArchetypeDetail) {
                     await captureAndAddPage('pdf-brand-archetype', 'BRAND ARCHETYPE ANALYSIS', pageCounter++);
                 }
+
+                // 7. ROI UPLIFT
+                await captureAndAddPage('pdf-roi', 'ROI UPLIFT PROJECTION', pageCounter++);
 
                 // 7. STRATEGY PLAN
                 if (data.campaignStrategy) {

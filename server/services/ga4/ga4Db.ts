@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -114,7 +115,28 @@ export interface GA4CacheEntry {
 // --- OPERATIONS ---
 
 // Connections
-export function upsertConnection(conn: GA4Connection): void {
+export function upsertConnection(conn: Partial<GA4Connection> & { user_id: string }): void {
+    const defaultConn = {
+        id: uuidv4(),
+        property_id: null,
+        property_display_name: null,
+        account_id: null,
+        refresh_token_encrypted: 'SA_AUTH_NO_TOKEN', // Default for Service Account
+        scopes: '["https://www.googleapis.com/auth/analytics.readonly"]', // Default scope
+        revenue_allowed: 0,
+        timezone: 'UTC',
+        currency: 'USD',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        last_fetch_status: null,
+        last_fetch_at: null
+    };
+
+    const finalConn = { ...defaultConn, ...conn };
+
+    // Ensure boolean conversion for storage if passed as boolean
+    const revenueAllowedStored = (finalConn.revenue_allowed === true || finalConn.revenue_allowed === 1) ? 1 : 0;
+
     const stmt = db.prepare(`
         INSERT INTO ga4_connections 
         (id, user_id, property_id, property_display_name, account_id, refresh_token_encrypted, scopes, revenue_allowed, timezone, currency, created_at, updated_at, last_fetch_status, last_fetch_at)
@@ -129,21 +151,12 @@ export function upsertConnection(conn: GA4Connection): void {
             timezone = excluded.timezone,
             currency = excluded.currency,
             updated_at = excluded.updated_at
-            -- Not updating fetch status on upsert unless explicitly provided, usually explicit update is better?
-            -- Actually if we re-auth we might want to reset? Let's leave it as is or update if provided.
-            -- Logic below uses ...conn so if conn has it, it writes it (but ON CONFLICT clause needs to explicitly set it to update).
-            -- For now let's keep fetch status updates separate to avoid overwriting with null on re-auth.
     `);
-    const params = {
-        property_id: null,
-        property_display_name: null,
-        account_id: null,
-        last_fetch_status: null,
-        last_fetch_at: null,
-        ...conn,
-        revenue_allowed: conn.revenue_allowed ? 1 : 0
-    };
-    stmt.run(params);
+
+    stmt.run({
+        ...finalConn,
+        revenue_allowed: revenueAllowedStored
+    });
 }
 
 export function getConnection(userId: string): GA4Connection | undefined {

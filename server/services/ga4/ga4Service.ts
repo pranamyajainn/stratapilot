@@ -1,100 +1,62 @@
 import { google } from 'googleapis';
 import { BetaAnalyticsDataClient } from '@google-analytics/data';
 import { v4 as uuidv4 } from 'uuid';
-import { encrypt, decrypt } from '../../utils/encryption.js';
 import * as db from './ga4Db.js';
 
 // Environment variables
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/google/callback';
+const CREDENTIALS_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
-if (!CLIENT_ID || !CLIENT_SECRET) {
-    console.error('CRITICAL: GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET missing.');
-}
+// Initialize GoogleAuth client (Service Account)
+const auth = new google.auth.GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/analytics.readonly'],
+    keyFile: CREDENTIALS_PATH
+});
 
-const oauth2Client = new google.auth.OAuth2(
-    CLIENT_ID,
-    CLIENT_SECRET,
-    REDIRECT_URI
-);
+// --- SERVICE ACCOUNT FLOW ---
 
-const SCOPES = [
-    'https://www.googleapis.com/auth/analytics.readonly',
-    'https://www.googleapis.com/auth/userinfo.email',
-    'https://www.googleapis.com/auth/userinfo.profile'
-];
+export const verifyPropertyAccess = async (propertyId: string, userId: string) => {
+    try {
+        // 1. Create client
+        const client = await auth.getClient();
 
-// --- OAUTH FLOW ---
+        // 2. Try to list metadata for the property to verify access
+        const analyticsAdmin = google.analyticsadmin({ version: 'v1beta', auth: client as any });
 
-export const getAuthUrl = () => {
-    return oauth2Client.generateAuthUrl({
-        access_type: 'offline', // Critical for refresh token
-        scope: SCOPES,
-        prompt: 'consent', // Force consent to ensure we get a refresh token
-        include_granted_scopes: true
-    });
+        // Ensure propertyId format "properties/123"
+        const formattedPropertyId = propertyId.startsWith('properties/') ? propertyId : `properties/${propertyId}`;
+
+        const res = await analyticsAdmin.properties.get({
+            name: formattedPropertyId
+        });
+
+        const prop = res.data;
+
+        // 3. If successful, save connection
+        const connectionId = db.getConnection(userId)?.id || uuidv4();
+
+        db.upsertConnection({
+            id: connectionId,
+            user_id: userId,
+            property_id: formattedPropertyId.replace('properties/', ''), // Store generic ID
+            timezone: prop.timeZone || 'UTC',
+            currency: prop.currencyCode || 'USD',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        });
+
+        db.logAudit(uuidv4(), userId, 'CONNECT_GA4_SA', { propertyId: formattedPropertyId });
+
+        return { success: true, property: prop };
+
+    } catch (error: any) {
+        console.error('[GA4 Verify] Access denied or error:', error.message);
+        throw new Error(`Service Account cannot access Property ID ${propertyId}. Ensure you've added the service email to GA4 Property Access.`);
+    }
 };
 
-export const handleAuthCallback = async (code: string, userId: string) => {
-    const { tokens } = await oauth2Client.getToken(code);
-
-    if (!tokens.refresh_token) {
-        // This might happen if user re-auths without prompt='consent'
-        // But we force it above. If still missing, we might need to revoke first.
-        console.warn('[GA4 Auth] No refresh token received. User might have already granted access.');
-    }
-
-    // Encrypt refresh token
-    const refreshToken = tokens.refresh_token;
-    // If we didn't get a refresh token, we might need to look up existing one? 
-    // For now, assume we get it or fail. 
-    // Actually, if we re-auth an existing user we might only get access token.
-    // We should handle that by checking if we already have a connection.
-
-    let encryptedRefresh = '';
-    if (refreshToken) {
-        encryptedRefresh = encrypt(refreshToken);
-    } else {
-        const existing = db.getConnection(userId);
-        if (existing?.refresh_token_encrypted) {
-            encryptedRefresh = existing.refresh_token_encrypted;
-        } else {
-            throw new Error('No refresh token received and no existing connection found.');
-        }
-    }
-
-    const connectionId = db.getConnection(userId)?.id || uuidv4();
-
-    // Create/Update connection
-    db.upsertConnection({
-        id: connectionId,
-        user_id: userId,
-        refresh_token_encrypted: encryptedRefresh,
-        scopes: JSON.stringify(tokens.scope?.split(' ') || SCOPES),
-        revenue_allowed: false, // Default to false
-        timezone: 'UTC', // Default
-        currency: 'USD', // Default
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-    });
-
-    db.logAudit(uuidv4(), userId, 'CONNECT_GA4', { scopes: tokens.scope });
-
-    return { success: true };
-};
 
 export const disconnectGA4 = async (userId: string) => {
-    // Optionally revoke token with Google
-    const conn = db.getConnection(userId);
-    if (conn) {
-        try {
-            const refreshToken = decrypt(conn.refresh_token_encrypted);
-            await oauth2Client.revokeToken(refreshToken);
-        } catch (e) {
-            console.warn('[GA4] Failed to revoke token:', e);
-        }
-    }
+    // Just delete the DB record, no token to revoke
     db.deleteConnection(userId);
     db.logAudit(uuidv4(), userId, 'DISCONNECT_GA4', {});
     return { success: true };
@@ -108,78 +70,36 @@ const getAuthenticatedClient = async (userId: string) => {
         throw new Error('User is not connected to GA4');
     }
 
-    const refreshToken = decrypt(conn.refresh_token_encrypted);
-
-    const client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
-    client.setCredentials({ refresh_token: refreshToken });
-
-    // Refresh access token if needed (handled automatically by googleapis usually, 
-    // but for @google-analytics/data we might need the raw token or an auth client)
-
+    const client = await auth.getClient();
     return { client, propertyId: conn.property_id, connection: conn };
 };
 
 // --- ADMIN API (Properties) ---
 
-// --- ADMIN API (Properties) ---
-
 export const listProperties = async (userId: string) => {
-    const { client } = await getAuthenticatedClient(userId);
+    // Service Accounts cannot easily "list all properties" they have access to 
+    // unless they are part of an org or we use account summaries.
+    // For SA, it's better to rely on user providing the specific ID.
+    // But we can try to list account summaries.
 
-    const analyticsAdmin = google.analyticsadmin({ version: 'v1beta', auth: client });
-
-    // List accounts first? Or just list properties.
-    // `properties` list requires filtering by account usually, or "-" for all accessible?
-    // In v1beta, properties.list can use filter 'parent:accounts/123' or just list accessible.
-    // Actually properties.list with `filter: 'parent:accounts/-'` lists all?
-    // Let's try listing account summaries which is easier for hierarchical view.
-
-    const res = await analyticsAdmin.accountSummaries.list();
-
-    // Normalize response
-    const summaries = res.data.accountSummaries || [];
-
-    const accounts = summaries.map(account => ({
-        id: account.account, // "accounts/123"
-        name: account.displayName,
-        properties: account.propertySummaries?.map(prop => ({
-            id: prop.property, // "properties/456"
-            displayName: prop.displayName
-        })) || []
-    }));
-
-    return accounts;
+    try {
+        const client = await auth.getClient();
+        const analyticsAdmin = google.analyticsadmin({ version: 'v1beta', auth: client as any });
+        const res = await analyticsAdmin.accountSummaries.list();
+        return res.data.accountSummaries || [];
+    } catch (e) {
+        console.warn('Failed to list properties for SA:', e);
+        return [];
+    }
 };
 
 export const selectProperty = async (userId: string, propertyId: string) => {
-    // propertyId format: "properties/123456"
-
-    const { client } = await getAuthenticatedClient(userId);
-    const analyticsAdmin = google.analyticsadmin({ version: 'v1beta', auth: client });
-
-    // Fetch metadata to get currency/timezone
-    const res = await analyticsAdmin.properties.get({
-        name: propertyId
-    });
-
-    const prop = res.data;
-
-    db.updatePropertySelection(
-        userId,
-        propertyId.replace('properties/', ''), // Store just ID or full path? Let's treat input as potentially full path but store clean ID if we want. 
-        // Actually the library usually expects "properties/ID". Let's store just the numeric ID to be safe, or consistency.
-        // Google's Data API expects `properties/${propertyId}`. 
-        // Let's store the numeric part if input is "properties/123", or just "123".
-        // Helper:
-        prop.displayName || 'Unknown Property',
-        prop.timeZone || 'UTC',
-        prop.currencyCode || 'USD'
-    );
-
-    db.logAudit(uuidv4(), userId, 'SELECT_PROPERTY', { propertyId, name: prop.displayName });
-
-    return { success: true, property: prop };
+    // Re-use verify logic essentially, or just update selection if we allow multiple
+    // In this simpler SA flow, "Connecting" IS "Selecting".
+    // Use verifyPropertyAccess instead.
+    return verifyPropertyAccess(propertyId, userId);
 };
+
 
 // --- DATA API (Reports) ---
 
