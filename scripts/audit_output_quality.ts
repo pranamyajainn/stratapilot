@@ -122,7 +122,7 @@ If the audience is specific, target channels they use.
 
         // We use the orchestration (Llama 3.3) to simulate what Gemini would do in server.ts 
         // OR we can use the actual Gemini client if we want text-to-text.
-        // server.ts uses Gemini 2.0 Flash for strategy.
+        // server.ts uses Gemini 2.5 Flash for strategy.
         // Let's use the Orchestrator (Llama 3.3) as a proxy or just try to use Gemini if keys are set.
         // The task is to "Verify LLM output". If server uses Gemini, I should test Gemini.
 
@@ -135,7 +135,7 @@ If the audience is specific, target channels they use.
             // The server uses `getAIClient().models.generateContent`
             // mimicking that:
             // Note: GoogleGenAI node SDK usage:
-            // const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+            // const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
             // const result = await model.generateContent(prompt);
 
             // Wait, server.ts imports GoogleGenAI from @google/genai? 

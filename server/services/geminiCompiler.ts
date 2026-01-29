@@ -204,7 +204,7 @@ export class GeminiVisualCompiler {
 
         try {
             const response = await this.getClient().models.generateContent({
-                model: 'gemini-2.0-flash',
+                model: 'gemini-2.5-flash',
                 contents: { parts },
                 config: {
                     systemInstruction: VISUAL_COMPILER_PROMPT,

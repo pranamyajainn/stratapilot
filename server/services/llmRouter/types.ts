@@ -151,7 +151,7 @@ export interface CostDecision {
  */
 export interface RequestProvenance {
     requestId: string;
-    modelId: GroqModelId | 'gemini-2.0-flash';
+    modelId: GroqModelId | 'gemini-2.5-flash';
     taskType: TaskIntent;
     promptHash: string;
     outputHash: string;

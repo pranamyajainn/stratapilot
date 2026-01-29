@@ -28,6 +28,7 @@ import { extractGA4Insights, extractMetaAdsInsights, formatInsightsForLLM, forma
 import { getGroqAnalyzer } from './services/groqAnalyzer.js';
 import { classifyInputCapability } from './services/capabilityClassifier.js';
 import { discoverCrossIndustryPatterns } from './services/crossIndustryAnalyzer.js';
+import { getSocialDownloader } from './services/socialDownloader.js';
 
 // ES Module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -662,7 +663,7 @@ ${JSON.stringify([ONE_SHOT_DIAGNOSTIC_EXAMPLE], null, 2)}
     return safeGenerate<AnalysisResult>(
         "analyzeCollateral",
         () => getAIClient().models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             contents: { parts: parts },
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
@@ -705,7 +706,7 @@ If the audience is specific, target channels they use.
     return safeGenerate<CampaignStrategy>(
         "generateCampaignStrategy",
         () => getAIClient().models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             contents: { parts: [{ text: prompt }] },
             config: {
                 systemInstruction: STRATEGY_SYSTEM_INSTRUCTION,
@@ -1161,12 +1162,36 @@ const downloadFile = async (url: string, destPath: string): Promise<string> => {
                     .on('finish', () => onFinish('video/mp4'))
                     .on('error', onError);
             } else {
-                console.log(`[DOWNLOAD] Detected Direct URL: ${url}`);
+                console.log(`[DOWNLOAD] Processing URL: ${url}`);
+                let downloadUrl = url;
+
+                // Check if it looks like a social media URL (simple heuristic)
+                const isSocial = url.includes('tiktok.com') || url.includes('instagram.com');
+
+                if (isSocial) {
+                    console.log('[DOWNLOAD] Detected Social Media URL. Attempting extraction...');
+                    try {
+                        const extracted = await getSocialDownloader().getVideoDirectUrl(url);
+                        if (extracted) {
+                            console.log('[DOWNLOAD] Successfully extracted video URL');
+                            downloadUrl = extracted;
+                        } else {
+                            console.warn('[DOWNLOAD] Failed to extract video URL, falling back to direct request');
+                        }
+                    } catch (err: any) {
+                        console.warn(`[DOWNLOAD] Extraction error: ${err.message}, falling back to direct request`);
+                    }
+                }
+
+                console.log(`[DOWNLOAD] Requesting: ${downloadUrl}`);
                 const response = await axios({
                     method: 'GET',
-                    url: url,
+                    url: downloadUrl,
                     responseType: 'stream',
-                    timeout: 10000 // Connect timeout
+                    timeout: 10000, // Connect timeout
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    }
                 });
                 const mimeType = response.headers['content-type'];
                 response.data.pipe(fs.createWriteStream(destPath))
@@ -1463,6 +1488,54 @@ app.get('/api/insight-stats', (req, res) => {
     }
 });
 
+// PUT /api/insights/:id - HITL Persistence Endpoint
+app.put('/api/insights/:id', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        const { analysis } = req.body;
+
+        console.log(`[API] Updating insight ${id}...`);
+
+        if (!analysis) {
+            throw new ValidationError("Analysis data is required for update.");
+        }
+
+        // Import dynamically to avoid circular deps or ensure loaded
+        const { updateAnalysis } = await import('./services/insightDb.js');
+
+        const success = updateAnalysis(id, { analysis });
+
+        if (!success) {
+            return res.status(404).json({ success: false, error: "Insight not found or update failed." });
+        }
+
+        console.log(`[API] Insight ${id} updated successfully.`);
+        res.json({ success: true, message: "Insight updated" });
+
+    } catch (error) {
+        next(error);
+    }
+});
+// GET /api/insights/:id - HITL Retrieval Endpoint
+app.get('/api/insights/:id', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params;
+        console.log(`[API] Fetching insight ${id}...`);
+
+        const { getInsightById } = await import('./services/insightDb.js');
+        const record = getInsightById(id);
+
+        if (!record) {
+            return res.status(404).json({ success: false, error: "Insight not found." });
+        }
+
+        console.log(`[API] Insight ${id} retrieved.`);
+        res.json({ success: true, data: record.analysis });
+
+    } catch (error) {
+        next(error);
+    }
+});
 // --- AUTH ROUTES ---
 
 /* REMOVED: Legacy Google Auth Routes - migrated to /api/ga4/auth
@@ -1499,6 +1572,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
 
 import { MetaScheduler } from './services/meta/scheduler.js';
+import { generatePdfReport } from './services/pdfService.js';
 
 // Initialize Databases
 initDatabase();
@@ -1645,6 +1719,34 @@ app.post('/api/cross-industry-insights', async (req: Request, res: Response, nex
 // GA4 Routes
 app.use('/api/ga4', ga4Router);
 
+// POST /api/reports/generate - HEADLESS PDF GENERATION (HARD GATE FIX)
+app.post('/api/reports/generate', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { analysis } = req.body;
+        console.log('[API] /api/reports/generate called');
+
+        if (!analysis) {
+            throw new ValidationError("Analysis data is required for report generation");
+        }
+
+        // Import locally to ensure puppeteer is available
+        const { generatePdfReport } = await import('./services/pdfService.js');
+
+        const pdfBuffer = await generatePdfReport(analysis);
+
+        // Send PDF
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=StrataPilot_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+
+        res.send(pdfBuffer);
+        console.log('[API] PDF Report generated and sent successfully.');
+
+    } catch (error) {
+        next(error);
+    }
+});
+
 // Serve static files from the dist directory
 const distPath = path.join(__dirname, '..', 'dist');
 app.use(express.static(distPath));
@@ -1670,7 +1772,8 @@ const errorHandler = (err: any, req: any, res: Response, next: NextFunction) => 
         code = err.code;
     } else if (err instanceof AIOutputError) {
         status = 502; // Bad Gateway (upstream AI failed)
-        message = "AI service returned invalid response. Please try again.";
+        status = 502; // Bad Gateway (upstream AI failed)
+        message = `AI service error: ${err.message}`;
         code = err.code;
     } else if (err instanceof AIRuntimeError) {
         status = 503; // Service Unavailable

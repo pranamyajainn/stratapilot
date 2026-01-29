@@ -11,7 +11,7 @@ import type { GroqModelId, LLMResponse, RequestProvenance } from './types.js';
 // CONFIGURATION
 // =====================================================
 
-const GROQ_BASE_URL = 'https://api.groq.com/openai/v1';
+
 
 /**
  * API Key pool for rotation
@@ -108,12 +108,12 @@ export class GroqClient {
     }
 
     /**
-     * Create an OpenAI client instance for the given key
+     * Create an OpenAI client instance for the given key and base URL
      */
     private createClient(apiKey: string): OpenAI {
         return new OpenAI({
             apiKey,
-            baseURL: GROQ_BASE_URL,
+            baseURL: 'https://api.groq.com/openai/v1',
         });
     }
 
@@ -129,6 +129,150 @@ export class GroqClient {
      */
     private generateRequestId(): string {
         return `req_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    }
+
+    /**
+     * Execute request specifically for the internal key pool (Primary)
+     */
+    private async executePoolRequest<T>(
+        keyEntry: KeyPoolEntry,
+        client: OpenAI,
+        modelId: GroqModelId,
+        systemPrompt: string,
+        userPrompt: string,
+        options: any,
+        requestId: string,
+        promptHash: string,
+        startTime: number
+    ): Promise<LLMResponse<T>> {
+        try {
+            return await this.performApiCall(client, modelId, systemPrompt, userPrompt, options, requestId, promptHash, startTime);
+        } catch (error: any) {
+            // Handle rate limiting specifically for pool
+            const latencyMs = Date.now() - startTime;
+            if (error?.status === 429 || error?.message?.includes('rate_limit')) {
+                const retryAfter = parseInt(error?.headers?.['retry-after'] || '60', 10);
+                this.markRateLimited(keyEntry, retryAfter);
+
+                // Try with next key
+                if (this.keyPool.length > 1) {
+                    console.log('[GroqClient] Retrying with next key...');
+                    return this.chatCompletion(modelId, systemPrompt, userPrompt, options); // Recursive call safe
+                }
+
+                return {
+                    success: false,
+                    error: 'LLM service temporarily unavailable due to high demand.',
+                    errorCode: 'RATE_LIMITED',
+                    provenance: { requestId, modelId, taskType: 'classification', promptHash, outputHash: '', inputTokens: 0, outputTokens: 0, latencyMs }
+                };
+            }
+            // Propagate other errors
+            throw error;
+        }
+    }
+
+    /**
+     * Core API call execution logic (shared)
+     */
+    private async executeRequest<T>(
+        client: OpenAI,
+        modelId: string,
+        systemPrompt: string,
+        userPrompt: string,
+        options: any,
+        requestId: string,
+        promptHash: string,
+        startTime: number
+    ): Promise<LLMResponse<T>> {
+        try {
+            return await this.performApiCall(client, modelId as GroqModelId, systemPrompt, userPrompt, options, requestId, promptHash, startTime);
+        } catch (error: any) {
+            // For generic/secondary requests, we just return the error wrapped, no pool logic
+            const latencyMs = Date.now() - startTime;
+            console.error(`[GroqClient] Error: ${error?.message || error}`);
+            return {
+                success: false,
+                error: error?.message || 'Unknown error occurred',
+                errorCode: error?.status === 429 ? 'RATE_LIMITED' : 'UNKNOWN',
+                provenance: { requestId, modelId: modelId as GroqModelId, taskType: 'classification', promptHash, outputHash: '', inputTokens: 0, outputTokens: 0, latencyMs }
+            };
+        }
+    }
+
+    /**
+     * Actual network call to OpenAI-compatible API
+     */
+    private async performApiCall<T>(
+        client: OpenAI,
+        modelId: GroqModelId,
+        systemPrompt: string,
+        userPrompt: string,
+        options: any,
+        requestId: string,
+        promptHash: string,
+        startTime: number
+    ): Promise<LLMResponse<T>> {
+        const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+        ];
+
+        const response = await client.chat.completions.create({
+            model: modelId,
+            messages,
+            temperature: options.temperature ?? 0.2,
+            max_tokens: options.maxTokens ?? 4096,
+            response_format: options.responseFormat === 'json'
+                ? { type: 'json_object' }
+                : undefined,
+        });
+
+        const content = response.choices[0]?.message?.content || '';
+        const outputHash = this.hashContent(content);
+        const latencyMs = Date.now() - startTime;
+
+        // Parse JSON if requested
+        let data: T;
+        if (options.responseFormat === 'json') {
+            try {
+                data = JSON.parse(content) as T;
+            } catch (e) {
+                return {
+                    success: false,
+                    error: `Failed to parse JSON response: ${content.substring(0, 100)}...`,
+                    provenance: {
+                        requestId,
+                        modelId,
+                        taskType: 'classification',
+                        promptHash,
+                        outputHash,
+                        inputTokens: response.usage?.prompt_tokens || 0,
+                        outputTokens: response.usage?.completion_tokens || 0,
+                        latencyMs,
+                    },
+                };
+            }
+        } else {
+            data = content as unknown as T;
+        }
+
+        console.log(`[GroqClient] ${modelId} completed in ${latencyMs}ms (${response.usage?.total_tokens || 0} tokens)`);
+
+        return {
+            success: true,
+            data,
+            provenance: {
+                requestId,
+                modelId,
+                taskType: 'classification', // Will be updated by caller
+                promptHash,
+                outputHash,
+                inputTokens: response.usage?.prompt_tokens || 0,
+                outputTokens: response.usage?.completion_tokens || 0,
+                latencyMs,
+            },
+        };
     }
 
     /**
@@ -148,6 +292,7 @@ export class GroqClient {
         const startTime = Date.now();
         const promptHash = this.hashContent(systemPrompt + userPrompt);
 
+        // -- PRIMARY PATH (GROQ POOL) --
         const keyEntry = this.getAvailableKey();
         if (!keyEntry) {
             return {
@@ -167,121 +312,15 @@ export class GroqClient {
         }
 
         const client = this.createClient(keyEntry.key);
+        const response = await this.executePoolRequest<T>(keyEntry, client, modelId, systemPrompt, userPrompt, options, requestId, promptHash, startTime);
 
-        try {
-            const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-            ];
-
-            const response = await client.chat.completions.create({
-                model: modelId,
-                messages,
-                temperature: options.temperature ?? 0.2,
-                max_tokens: options.maxTokens ?? 4096,
-                response_format: options.responseFormat === 'json'
-                    ? { type: 'json_object' }
-                    : undefined,
-            });
-
-            const content = response.choices[0]?.message?.content || '';
-            const outputHash = this.hashContent(content);
-            const latencyMs = Date.now() - startTime;
-
-            // Update usage tracking
+        // Update usage only for internal pool keys if success
+        if (response.success || response.errorCode !== 'RATE_LIMITED') {
             keyEntry.usageToday++;
             keyEntry.lastUsed = new Date();
-
-            // Parse JSON if requested
-            let data: T;
-            if (options.responseFormat === 'json') {
-                try {
-                    data = JSON.parse(content) as T;
-                } catch (e) {
-                    return {
-                        success: false,
-                        error: `Failed to parse JSON response: ${content.substring(0, 100)}...`,
-                        provenance: {
-                            requestId,
-                            modelId,
-                            taskType: 'classification',
-                            promptHash,
-                            outputHash,
-                            inputTokens: response.usage?.prompt_tokens || 0,
-                            outputTokens: response.usage?.completion_tokens || 0,
-                            latencyMs,
-                        },
-                    };
-                }
-            } else {
-                data = content as unknown as T;
-            }
-
-            console.log(`[GroqClient] ${modelId} completed in ${latencyMs}ms (${response.usage?.total_tokens || 0} tokens)`);
-
-            return {
-                success: true,
-                data,
-                provenance: {
-                    requestId,
-                    modelId,
-                    taskType: 'classification', // Will be updated by caller
-                    promptHash,
-                    outputHash,
-                    inputTokens: response.usage?.prompt_tokens || 0,
-                    outputTokens: response.usage?.completion_tokens || 0,
-                    latencyMs,
-                },
-            };
-
-        } catch (error: any) {
-            const latencyMs = Date.now() - startTime;
-
-            // Handle rate limiting
-            if (error?.status === 429 || error?.message?.includes('rate_limit')) {
-                const retryAfter = parseInt(error?.headers?.['retry-after'] || '60', 10);
-                this.markRateLimited(keyEntry, retryAfter);
-
-                // Try with next key
-                if (this.keyPool.length > 1) {
-                    console.log('[GroqClient] Retrying with next key...');
-                    return this.chatCompletion(modelId, systemPrompt, userPrompt, options);
-                }
-
-                return {
-                    success: false,
-                    error: 'LLM service temporarily unavailable due to high demand. Please try again in a few seconds.',
-                    errorCode: 'RATE_LIMITED',
-                    provenance: {
-                        requestId,
-                        modelId,
-                        taskType: 'classification',
-                        promptHash,
-                        outputHash: '',
-                        inputTokens: 0,
-                        outputTokens: 0,
-                        latencyMs,
-                    },
-                };
-            }
-
-            console.error(`[GroqClient] Error: ${error?.message || error}`);
-
-            return {
-                success: false,
-                error: error?.message || 'Unknown error occurred',
-                provenance: {
-                    requestId,
-                    modelId,
-                    taskType: 'classification', // Will be updated by caller
-                    promptHash,
-                    outputHash: '',
-                    inputTokens: 0,
-                    outputTokens: 0,
-                    latencyMs,
-                },
-            };
         }
+
+        return response;
     }
 
     /**

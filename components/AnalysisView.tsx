@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AnalysisResult, DiagnosticItem, Demographic, Psychographic, Behavioral, BrandArchetypeDetail, BrandStrategyCard } from '../types';
 import {
   User, Brain, Activity, Target, TrendingUp, TrendingDown, Users, Heart, Diamond, CheckCircle2, DollarSign, Scan, Search, Radar, Sparkles, Crown, ZapOff, Info, Layers, ShieldAlert, CheckCircle, FileText, BarChart, Globe, Zap, Smile, LayoutTemplate, Briefcase, MapPin, GraduationCap, Coins, Users2, Rocket,
-  Calendar, BookOpen, Trophy, Lightbulb, RefreshCw, ShieldCheck, ChevronDown, ChevronUp, Edit2, Check, ArrowRight, BrainCircuit, Fingerprint, Headphones, Anchor, Link2, BoxSelect, Sun, Compass, Zap as OutlawIcon, Palette, HandHeart, Bot, MousePointerClick, Database, Swords, Clock, TrendingUp as UpliftIcon, AlertTriangle, PlayCircle, MousePointer2, BarChart3, Lock, Pencil, Microscope, Ear, LayoutGrid, Eye, FileDown, Loader2
+  Calendar, BookOpen, Trophy, Lightbulb, RefreshCw, ShieldCheck, ChevronDown, ChevronUp, Edit2, Check, ArrowRight, BrainCircuit, Fingerprint, Headphones, Anchor, Link2, BoxSelect, Sun, Compass, Zap as OutlawIcon, Palette, HandHeart, Bot, MousePointerClick, Database, Swords, Clock, TrendingUp as UpliftIcon, AlertTriangle, PlayCircle, MousePointer2, BarChart3, Lock, Pencil, Microscope, Ear, LayoutGrid, Eye, FileDown, Loader2, X
 } from 'lucide-react';
 import {
   Radar as RechartsRadar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, Legend
@@ -89,6 +89,31 @@ const getTierStyles = (tier: string): string => {
     case "Average": return "text-[#f59e0b] bg-[#fffbeb] border-[#fef3c7]";
     default: return "text-[#ef4444] bg-[#fef2f2] border-[#fee2e2]";
   }
+};
+
+// --- PERSISTENCE LOGIC ---
+const usePersistence = (data: AnalysisResult, onUpdateData: (d: AnalysisResult) => void) => {
+  const save = async (overrides: Partial<AnalysisResult>) => {
+    // Optimistic UI Update
+    const newData = { ...data, ...overrides };
+    onUpdateData(newData);
+
+    // Backend Persist
+    if (data.auditId) { // auditId is used as the DB ID here per server logic
+      try {
+        await fetch(`/api/insights/${data.auditId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ analysis: newData })
+        });
+        console.log('[PERSIST] Saved to backend:', data.auditId);
+      } catch (e) {
+        console.error('[PERSIST] Failed to save:', e);
+        alert("Failed to save changes. Please try again.");
+      }
+    }
+  };
+  return { save };
 };
 
 const ScoreGauge: React.FC<{ score: number, benchmark: number }> = ({ score, benchmark }) => {
@@ -320,7 +345,7 @@ const ExecutiveRecommendationCard: React.FC<{ item: DiagnosticItem, index: numbe
 const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Partial<DiagnosticItem>) => void }> = ({ item, onUpdate }) => {
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editScore, setEditScore] = useState(item.score.toString());
+  const [editScore, setEditScore] = useState(normalizeScore(item.score).toString());
   const [editCommentary, setEditCommentary] = useState(item.commentary);
 
   const s = normalizeScore(item.score);
@@ -834,6 +859,7 @@ const ValueUnlockingCard: React.FC<{
 
 
 export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, onGenerateStrategy, onExport, isStrategizing, activeMode }) => {
+  const { save } = usePersistence(data, onUpdateData);
   console.log("ANTIGRAVITY_FIX_V2: AnalysisView mounted", { hookCurDefined: true });
   const [activeTab, setActiveTab] = useState("scorecard");
   const [isExporting, setIsExporting] = useState(false);
@@ -1028,7 +1054,10 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
         {
           activeTab === "brand-strategy" && (
             <ErrorBoundary>
-              <BrandStrategyWindow cards={data.brandStrategyWindow || []} />
+              <BrandStrategyWindow
+                cards={data.brandStrategyWindow || []}
+                onUpdate={(cards) => onUpdateData({ ...data, brandStrategyWindow: cards })}
+              />
             </ErrorBoundary>
           )
         }
@@ -1037,7 +1066,10 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
         {
           activeTab === "brand-archetype" && (
             <ErrorBoundary>
-              <BrandArchetypeMatrix detail={data.brandArchetypeDetail} />
+              <BrandArchetypeMatrix
+                detail={data.brandArchetypeDetail}
+                onUpdate={(detail) => onUpdateData({ ...data, brandArchetypeDetail: detail })}
+              />
             </ErrorBoundary>
           )
         }

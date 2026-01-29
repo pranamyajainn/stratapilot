@@ -364,8 +364,8 @@ flowchart TB
 
 | Task | Provider | Model | Rationale |
 |------|----------|-------|-----------|
-| Image/Video Understanding | Gemini | gemini-2.0-flash | Only viable option for vision |
-| Visual Feature Description | Gemini | gemini-2.0-flash | Extract as structured text |
+| Image/Video Understanding | Gemini | gemini-2.5-flash | Only viable option for vision |
+| Visual Feature Description | Gemini | gemini-2.5-flash | Extract as structured text |
 | Deep Diagnostic Analysis | Groq | deepseek-r1-distill-70b | Superior reasoning |
 | Strategy Synthesis | Groq | llama-3.3-70b | Creative excellence |
 | Insight Summarization | Groq | qwen3-32b | Long-context compression |

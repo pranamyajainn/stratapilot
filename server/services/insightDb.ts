@@ -11,6 +11,19 @@ const DB_PATH = path.join(__dirname, '../data/insights.db');
 // Initialize database
 let db: Database.Database;
 
+export function getInsightById(id: string): InsightRecord | null {
+    const stmt = db.prepare('SELECT * FROM insights WHERE id = ?');
+    const row = stmt.get(id) as any;
+
+    if (!row) return null;
+
+    return {
+        ...row,
+        analysis: JSON.parse(row.analysis),
+        tags: JSON.parse(row.tags)
+    };
+}
+
 export function initDatabase(): void {
     db = new Database(DB_PATH);
 
@@ -101,6 +114,29 @@ export function updateAccessTime(id: string): void {
         WHERE id = ?
     `);
     stmt.run(new Date().toISOString(), id);
+}
+
+export function updateAnalysis(id: string, overrides: Partial<InsightRecord>): boolean {
+    // Only allow updating analysis content, tags, or source_url for now
+    const current = db.prepare('SELECT * FROM insights WHERE id = ?').get(id) as any;
+    if (!current) return false;
+
+    const currentAnalysis = JSON.parse(current.analysis);
+    const newAnalysis = { ...currentAnalysis, ...overrides.analysis }; // Merge deep analysis object
+
+    const stmt = db.prepare(`
+        UPDATE insights 
+        SET analysis = ?, last_accessed_at = ?
+        WHERE id = ?
+    `);
+
+    const info = stmt.run(
+        JSON.stringify(newAnalysis),
+        newAnalysis.lastUpdated || new Date().toISOString(),
+        id
+    );
+
+    return info.changes > 0;
 }
 
 export function getInsightsByIndustry(industry: string, limit: number = 50): InsightRecord[] {

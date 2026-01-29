@@ -411,8 +411,7 @@ Each diagnostic must have: metric, score, benchmark, rubricTier, subInsights (5 
             }));
         }
 
-        // Fallback diagnostics
-        return this.getDefaultDiagnostics();
+        throw new Error(`Diagnostics generation failed: ${response.error || 'Invalid LLM response'}`);
     }
 
     /**
@@ -446,7 +445,7 @@ Output JSON with demographics, psychographics, and behavioral sections.
             return response.data;
         }
 
-        return this.getDefaultAudience();
+        throw new Error(`Audience profile generation failed: ${response.error || 'Invalid LLM response'}`);
     }
 
     /**
@@ -483,7 +482,7 @@ Output JSON with demographics, psychographics, and behavioral sections.
             return this.normalizeBrandOutput(response.data, capability);
         }
 
-        return this.getDefaultBrand();
+        throw new Error(`Brand analysis generation failed: ${response.error || 'Invalid LLM response'}`);
     }
 
     /**
@@ -574,87 +573,6 @@ Output JSON with demographics, psychographics, and behavioral sections.
         };
     }
 
-    // Default fallback methods
-    private getDefaultDiagnostics(): DiagnosticItem[] {
-        const metrics = [
-            "Immediate Attention (Hook)", "Creative Differentiation", "Visual Hierarchy",
-            "Audio Impact / Visual Synergy", "Call to Action (CTA) Strength", "Message Relevance",
-            "Clarity of Proposition", "Narrative Pacing", "Emotional Resonance",
-            "Brand Linkage & Visibility", "View-Through Potential", "Overall Persuasion"
-        ];
-
-        return metrics.map(metric => ({
-            metric,
-            score: 65,
-            benchmark: 65,
-            rubricTier: "Good",
-            subInsights: ["Analysis pending", "Review visual features", "Check context", "Verify data", "Validate manually"],
-            commentary: "Default analysis - Groq processing may have encountered an issue",
-            whyItMatters: "This metric indicates creative effectiveness",
-            recommendation: "Review the extracted visual features for accuracy",
-            impact: "Improved scores lead to better engagement"
-        }));
-    }
-
-    private getDefaultAudience(): AudienceProfile {
-        return {
-            demographics: {
-                age: "25-44",
-                gender: "All",
-                location: "Urban areas",
-                educationLevel: "College educated",
-                incomeLevel: "Middle to upper-middle",
-                occupation: "Professional",
-                maritalStatus: "Mixed",
-                generation: "Millennials/Gen X",
-                householdStructure: "Mixed",
-                techLiteracy: "Medium"
-            },
-            psychographics: {
-                interestsAndHobbies: ["General interests"],
-                valuesAndBeliefs: ["Quality", "Value"],
-                lifestyleChoices: ["Balanced"],
-                personalityTraits: ["Practical"],
-                brandArchetype: "The Regular",
-                motivations: ["Convenience", "Quality"],
-                goalsAndAspirations: ["Improvement"],
-                challengesAndPainPoints: ["Time constraints"]
-            },
-            behavioral: {
-                buyingHabits: "Research before purchase",
-                productUsageFrequency: "Regular",
-                brandLoyalty: "Moderate",
-                onlineBehavior: "Active",
-                socialMediaPlatforms: ["Instagram", "Facebook"],
-                contentConsumption: "Video and text",
-                responseToMarketing: "Responsive to value propositions",
-                priceSensitivity: "Medium",
-                decisionDriver: "Quality and value",
-                purchaseJourney: "Multi-touch"
-            }
-        };
-    }
-
-    private getDefaultBrand(): BrandAnalysis {
-        return {
-            consumerInsight: "Audience seeks reliable solutions",
-            functionalBenefit: "Delivers on core promise",
-            emotionalBenefit: "Provides confidence",
-            brandPersonality: "Trustworthy and approachable",
-            reasonsToBelieve: ["Visual quality", "Clear messaging"],
-            brandStrategyWindow: Array(10).fill(0).map((_, i) => ({
-                title: `Strategy Element ${i + 1}`,
-                subtitle: "Analysis pending",
-                content: "Review visual features for detailed analysis"
-            })),
-            brandArchetypeDetail: {
-                archetype: "The Regular",
-                value: "Belonging",
-                quote: "Everyone is welcome",
-                reasoning: "Based on visual presentation style"
-            }
-        };
-    }
 }
 
 // Singleton

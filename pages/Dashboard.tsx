@@ -461,6 +461,39 @@ export const Dashboard: React.FC = () => {
         }
     };
 
+
+    // --- PERSISTENCE RESTORATION ---
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const savedId = params.get('id');
+        if (savedId) {
+            console.log("Restoring analysis:", savedId);
+            setLoadingState('analyzing');
+            fetch(`/api/insights/${savedId}`)
+                .then(res => {
+                    if (!res.ok) throw new Error("Insight not found");
+                    return res.json();
+                })
+                .then(json => {
+                    if (json.success && json.data) {
+                        setResult(json.data);
+                        setLoadingState('success');
+                        // Ensure auditCounter doesn't clash if we continue working
+                        setAuditCounter(prev => prev + 1);
+                    } else {
+                        throw new Error("Invalid insight data");
+                    }
+                })
+                .catch(err => {
+                    console.error("Failed to restore:", err);
+                    setError("Could not load the saved report. It may have expired.");
+                    setLoadingState('error');
+                    // Remove invalid ID from URL
+                    window.history.replaceState({}, '', window.location.pathname);
+                });
+        }
+    }, []);
+
     const runAnalysis = async (presetOverride?: string) => {
         const contextParts = [];
         if (urlInput) contextParts.push(`Analysis Target URL: ${urlInput}`);
@@ -480,8 +513,18 @@ export const Dashboard: React.FC = () => {
             const data = await analyzeCollateral(combinedContext, activeLabel, file || undefined);
             const newAuditId = `SP-${String(auditCounter).padStart(5, '0')}`;
             setAuditCounter(prev => prev + 1);
-            setResult({ ...data, auditId: newAuditId });
+
+            const finalData = { ...data, auditId: newAuditId };
+            setResult(finalData);
             setLoadingState('success');
+
+            // --- PERSISTENCE PUSH ---
+            // Save immediately to generate the record so ID is valid for reload
+            // (Client-side optimistic save, or we can trust the first "Save" action)
+            // Ideally, we push the ID to URL now
+            const newUrl = `${window.location.pathname}?id=${newAuditId}`;
+            window.history.pushState({ path: newUrl }, '', newUrl);
+
         } catch (err: any) {
             setError(err.message || "Failed to analyze collateral. Please try again.");
             setLoadingState('error');

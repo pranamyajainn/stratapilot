@@ -69,6 +69,109 @@ export class LLMOrchestrator {
     }
 
     /**
+     * Execute a request with automatic failover to secondary provider
+     */
+    private async executeWithFailover<T>(
+        modelId: GroqModelId,
+        systemPrompt: string,
+        userPrompt: string,
+        options: {
+            temperature?: number;
+            maxTokens?: number;
+            responseFormat?: 'json' | 'text';
+        }
+    ): Promise<LLMResponse<T>> {
+        // Fallback Chain: Llama 70B -> GPT-OSS-120B (Groq-hosted O1-class)
+        // We only switch models if the primary (usually 70B) fails.
+        const fallbackModel: GroqModelId | null = (modelId === 'llama-3.3-70b-versatile')
+            ? ('openai/gpt-oss-120b' as GroqModelId)
+            : null;
+
+        // 1. Try Primary
+        try {
+            const response = await this.groqClient.chatCompletion<T>(
+                modelId,
+                systemPrompt,
+                userPrompt,
+                options
+            );
+
+            if (response.success) return response;
+
+            // Check if retryable (Rate Limit, Server Error)
+            const isRetryable = response.errorCode === 'RATE_LIMITED' ||
+                (response.error && (response.error.includes('500') || response.error.includes('503')));
+
+            if (!isRetryable || !fallbackModel) {
+                return response;
+            }
+
+            console.warn(`[LLMOrchestrator] Primary (${modelId}) failed with ${response.errorCode}. Failing over to ${fallbackModel}...`);
+
+        } catch (error: any) {
+            // Unexpected client error
+            console.warn(`[LLMOrchestrator] Primary threw exception. Checking fallback...`, error);
+            if (!fallbackModel) {
+                return {
+                    success: false,
+                    error: error?.message || 'Unknown error',
+                    errorCode: 'UNKNOWN',
+                    provenance: { requestId: 'err', modelId, taskType: 'classification', promptHash: '', outputHash: '', inputTokens: 0, outputTokens: 0, latencyMs: 0 }
+                };
+            }
+        }
+
+        // 2. Try Fallback Model (Same Groq Client, Same Key Pool)
+        if (fallbackModel) {
+            console.log(`[LLMOrchestrator] ⚠️ Executing Failover: ${fallbackModel}`);
+            try {
+                // Use the fallback model with the same options
+                const fallbackResponse = await this.groqClient.chatCompletion<T>(
+                    fallbackModel,
+                    systemPrompt,
+                    userPrompt,
+                    options
+                );
+
+                if (!fallbackResponse.success) {
+                    console.error(`[LLMOrchestrator] Fallback model (${fallbackModel}) also failed.`);
+                    // Return the fallback error (or the original? usually the fallback error is the final word)
+                } else {
+                    console.log(`[LLMOrchestrator] ✅ Failover successful.`);
+                }
+
+                return fallbackResponse;
+
+            } catch (error: any) {
+                console.error(`[LLMOrchestrator] Fallback exception.`, error);
+                return {
+                    success: false,
+                    error: 'All AI models temporarily unavailable.',
+                    errorCode: 'SERVICE_UNAVAILABLE',
+                    provenance: {
+                        requestId: `fail_${Date.now()}`,
+                        modelId: fallbackModel, // Blame the fallback
+                        taskType: 'classification',
+                        promptHash: '',
+                        outputHash: '',
+                        inputTokens: 0,
+                        outputTokens: 0,
+                        latencyMs: 0
+                    }
+                };
+            }
+        }
+
+        // Should not match here if fallbackModel was present, but safe return
+        return {
+            success: false,
+            error: 'AI service unavailable.',
+            errorCode: 'SERVICE_UNAVAILABLE',
+            provenance: { requestId: 'fail', modelId, taskType: 'classification', promptHash: '', outputHash: '', inputTokens: 0, outputTokens: 0, latencyMs: 0 }
+        };
+    }
+
+    /**
      * Main entry point for text-based LLM requests
      * Handles classification, routing, cost governance, and logging
      */
@@ -161,11 +264,12 @@ export class LLMOrchestrator {
             );
             response = {
                 success: twoPassResult.draft.success,
+                error: twoPassResult.draft.error,
                 data: twoPassResult.merged,
                 provenance: twoPassResult.draft.provenance,
             };
         } else {
-            response = await this.groqClient.chatCompletion<T>(
+            response = await this.executeWithFailover<T>(
                 selectedModel,
                 systemPrompt,
                 userPrompt,
@@ -208,7 +312,7 @@ export class LLMOrchestrator {
 
         // Draft pass: Llama 3.3 generates initial response
         const draftModel = this.router.getDraftModel(classification.intent);
-        const draft = await this.groqClient.chatCompletion<T>(
+        const draft = await this.executeWithFailover<T>(
             draftModel,
             systemPrompt,
             userPrompt,
@@ -239,7 +343,7 @@ ${typeof draft.data === 'string' ? draft.data : JSON.stringify(draft.data, null,
 ORIGINAL REQUEST:
 ${userPrompt.substring(0, 1000)}`;
 
-        const critique = await this.groqClient.chatCompletion<{
+        const critique = await this.executeWithFailover<{
             validationPassed: boolean;
             gaps: string[];
             rigorScore: number;
@@ -276,7 +380,7 @@ Rewrite the content to address these gaps.
 YOU MUST MEET THE MINIMUM WORD COUNT (150+ words/section).
 DO NOT REPEAT THE ERRORS.
 `;
-                const repair = await this.groqClient.chatCompletion<T>(
+                const repair = await this.executeWithFailover<T>(
                     draftModel,
                     systemPrompt,
                     userPrompt + "\n\n" + repairPrompt, // Append feedback to context
