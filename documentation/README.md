@@ -3,22 +3,26 @@
 **Current State Reflection**
 This documentation describes the StrataPilot system as of **January 2026**.
 
-## Documentation Map
+## 📑 Executive Reports
+*   [**Stakeholder Overview**](Stakeholder%20Final.md): High-level product value, capabilities, and business risk profile.
+*   [**CTO Technical Audit**](CTO%20Final.md): Architectural deep-dive, data flow, hybrid pipeline, and production risks.
 
-### 🧠 AI Core (`/ai-layer`)
-*   [**Orchestration**](ai-layer/orchestration.md): The multi-model routing engine (Groq + Gemini), cost governance, and two-pass reasoning architecture.
-*   [**Prompt Strategy**](ai-layer/prompt-strategy.md): How the system optimizes yield and prevents hallucination using conditional prompting.
+## 🧠 AI Layer (`/ai-layer`)
+*   [**Orchestration**](ai-layer/orchestration.md): Logic for the **Hybrid Pipeline** (Groq Strategy + Gemini Vision).
+*   [**Prompt Strategy**](ai-layer/prompt-strategy.md): Conditional prompting patterns for truthful AI generation.
 
-### 🧬 System Core (`/core`)
-*   [**Creative DNA**](core/creative-dna.md): The taxonomy and inference engine for structured ad analysis.
+## 🧬 System Core (`/core`)
+*   [**Creative DNA**](core/creative-dna.md): Taxonomy and inference engine for structured ad analysis.
 *   [**Cross-Category Learning**](core/cross-category.md): Architecture for inter-industry pattern discovery.
+*   **PDF Export Engine**: Headless Chrome rendering pipeline (`pdfService.ts`) producing consultant-grade reports.
+*   **Persistence Layer**: SQLite-backed auto-save system (`insightDb.ts`) ensuring data durability.
 
-### 🔌 Integrations (`/integrations`)
-*   [**Meta Ads**](integrations/meta-ads.md): Auth, sync, and insight extraction for Meta.
-*   [**Google Analytics 4**](integrations/ga4.md): Traffic and engagement signal extraction.
+## 🔌 Integrations (`/integrations`)
+*   [**Meta Ads**](integrations/meta-ads.md): Authentication, data sync, and insight extraction.
+*   [**Google Analytics 4**](integrations/ga4.md): Engagement signal extraction.
 
 ---
 
 **Note to Contributors:**
-*   **Truth in Code**: If this documentation contradicts the code, the code is right. Please update this documentation.
+*   **Truth in Code**: If this documentation contradicts the code, the code is right.
 *   **No Speculation**: Document only what is currently implemented and running.
