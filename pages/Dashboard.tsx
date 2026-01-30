@@ -669,9 +669,10 @@ export const Dashboard: React.FC = () => {
                                         <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-md"> <Globe size={14} /> </div> Analyze URL
                                     </label>
                                     <div className="relative">
-                                        <input type="text" value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="" className="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-300 bg-white text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-shadow" />
+                                        <input type="text" value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="Paste URL (YouTube, TikTok, Instagram, or direct video link)..." className="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-300 bg-white text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 outline-none transition-shadow" />
                                         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"> <LinkIcon size={16} /> </div>
                                     </div>
+                                    <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-1.5 bg-white p-2 rounded-lg border border-slate-200 inline-block self-start"> <Sparkles size={12} className="text-emerald-500" /> Supports social media & direct video links. </p>
                                 </div>
 
                                 <div className="flex-1 flex flex-col bg-slate-50 p-5 rounded-2xl border border-slate-200">

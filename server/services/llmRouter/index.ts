@@ -296,7 +296,7 @@ export class LLMOrchestrator {
     }
 
     /**
-     * Execute two-pass reasoning: Draft (Llama 3.3) → Critique (DeepSeek)
+     * Execute two-pass reasoning: Draft (Llama 3.3) → Critique (Llama 3.3)
      */
     private async executeTwoPass<T>(
         systemPrompt: string,
@@ -332,7 +332,7 @@ export class LLMOrchestrator {
             };
         }
 
-        // Critique pass: DeepSeek validates and scores
+        // Critique pass: Validator validates and scores
         const critiqueModel = this.router.getCritiqueModel(classification.complexity);
 
         const critiquePrompt = `Review this draft output for quality, completeness, and logical consistency:

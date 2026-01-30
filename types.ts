@@ -100,6 +100,35 @@ export interface RoiMetrics {
   roiUplift: number; // %
 }
 
+// Canonical Backend Types (Single Source of Truth)
+export interface HolisticScorecard {
+  averageScore: number;
+  rubricTier: string;
+}
+
+export interface ComputedRoi {
+  overallScore: number;
+  upliftFactor: number;
+  constrainedRoi: number;
+  optimizationPercent: number;
+  cri: {
+    clear: number;
+    captivating: number;
+    relevant: number;
+    unique: number;
+    credible: number;
+    motivating: number;
+  };
+  potentials: {
+    hook: number;
+    vtr: number;
+    ctr: number;
+    dropoff: number;
+    clarity: number;
+    distinctiveness: number;
+  };
+}
+
 export interface BrandArchetypeDetail {
   archetype: string;
   value: string;
@@ -151,6 +180,8 @@ export interface AnalysisResult {
   brandArchetypeDetail?: BrandArchetypeDetail;
   brandArchetypeUnavailable?: BrandArchetypeUnavailable;  // NEW: Explainability for missing archetype
   roiMetrics?: RoiMetrics;
+  holisticScorecard?: HolisticScorecard;
+  computedRoi?: ComputedRoi;
   roiCommentary?: RoiCommentary;
   modelHealth?: ModelHealth;
   validationSuite?: ValidationMetrics;

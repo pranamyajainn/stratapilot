@@ -12,9 +12,10 @@ const EditorialBadge: React.FC = () => (
 interface StrategyViewProps {
   strategy: CampaignStrategy;
   onUpdate?: (strategy: CampaignStrategy) => void;
+  printMode?: boolean;
 }
 
-export const StrategyView: React.FC<StrategyViewProps> = ({ strategy, onUpdate }) => {
+export const StrategyView: React.FC<StrategyViewProps> = ({ strategy, onUpdate, printMode = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editStrategy, setEditStrategy] = useState<CampaignStrategy>(strategy);
 
@@ -54,14 +55,14 @@ export const StrategyView: React.FC<StrategyViewProps> = ({ strategy, onUpdate }
   };
 
   return (
-    <div className="bg-slate-900 text-white rounded-[32px] p-8 lg:p-12 shadow-2xl border border-slate-700 animate-in fade-in slide-in-from-bottom-8 duration-700 relative group">
+    <div className={`bg-slate-900 text-white rounded-[32px] p-8 lg:p-12 shadow-2xl border border-slate-700 animate-in fade-in slide-in-from-bottom-8 duration-700 relative group ${printMode ? 'print:break-before-page' : ''}`}>
 
       {/* HEADER & CONTROLS */}
       <div className="flex flex-col items-center mb-10 text-center relative">
         {strategy.isHumanEdited && <div className="absolute top-0 right-0"><EditorialBadge /></div>}
 
         {/* EDIT TOGGLE */}
-        {onUpdate && (
+        {!printMode && onUpdate && (
           <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
             {!isEditing ? (
               <button onClick={() => setIsEditing(true)} className="p-2 bg-slate-800 rounded-full hover:bg-indigo-600 transition-colors text-slate-400 hover:text-white">

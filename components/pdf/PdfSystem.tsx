@@ -16,14 +16,22 @@ export const PdfSystem = forwardRef<PdfSystemHandle, PdfSystemProps>(({ data }, 
             try {
                 if (!data) return;
 
-                console.log('[PdfSystem] Triggering backend PDF generation...');
+                console.log('[PdfSystem] Capturing state snapshot...');
 
-                const response = await fetch('/api/reports/generate', {
+                // Capture full UI state snapshot
+                const snapshot = {
+                    analysis: data,
+                    strategy: data.campaignStrategy || null
+                };
+
+                console.log('[PdfSystem] Requesting print PDF...');
+
+                const response = await fetch('/api/reports/print', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ analysis: data })
+                    body: JSON.stringify({ snapshot })
                 });
 
                 if (!response.ok) {

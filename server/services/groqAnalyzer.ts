@@ -196,11 +196,42 @@ interface ROIMetrics {
     roiUplift: number;
 }
 
+export interface HolisticScorecard {
+    averageScore: number;
+    rubricTier: string;
+}
+
+export interface ComputedRoi {
+    overallScore: number;
+    upliftFactor: number;
+    constrainedRoi: number;
+    optimizationPercent: number;
+    cri: {
+        clear: number;
+        captivating: number;
+        relevant: number;
+        unique: number;
+        credible: number;
+        motivating: number;
+    };
+    potentials: {
+        hook: number;
+        vtr: number;
+        ctr: number;
+        dropoff: number;
+        clarity: number;
+        distinctiveness: number;
+    };
+}
+
+
 export interface StrategicAnalysisResult {
     adDiagnostics: DiagnosticItem[];
     audience: AudienceProfile;
     brandAnalysis: BrandAnalysis;
-    roiMetrics: ROIMetrics;
+    roiMetrics?: ROIMetrics; // Deprecated
+    holisticScorecard?: HolisticScorecard; // Canonical
+    computedRoi?: ComputedRoi; // Canonical
     modelHealth: {
         fairnessScore: number;
         biasCheckPassed: boolean;
@@ -269,6 +300,9 @@ export class GroqStrategicAnalyzer {
             this.generateROIMetrics(visualContext, visualFeatures),
         ]);
 
+        // Compute Canonical Metrics (Single Source of Truth)
+        const { holisticScorecard, computedRoi } = this.computeCanonicalMetrics(diagnostics);
+
         console.log('[GroqAnalyzer] Analysis complete');
 
         return {
@@ -276,6 +310,8 @@ export class GroqStrategicAnalyzer {
             audience,
             brandAnalysis: brand,
             roiMetrics: roi,
+            holisticScorecard, // Canonical
+            computedRoi,       // Canonical
             modelHealth: {
                 fairnessScore: 92,
                 biasCheckPassed: true,
@@ -394,8 +430,8 @@ Each diagnostic must have: metric, score, benchmark, rubricTier, subInsights (5 
             ANALYSIS_SYSTEM_PROMPT,
             prompt,
             {
-                taskType: 'reasoning', // Use DeepSeek for constraint reasoning
-                complexity: 'high',    // FORCE DeepSeek usage via router rules
+                taskType: 'reasoning', // Use specialized reasoning path (Llama 3.3)
+                complexity: 'high',    // Trigger rigorous review mode
                 priority: 'quality',
                 isClientFacing: true,
                 responseFormat: 'json',
@@ -573,6 +609,102 @@ Output JSON with demographics, psychographics, and behavioral sections.
         };
     }
 
+    /**
+     * Compute Canonical Metrics (Single Source of Truth)
+     * Replicates formulas from AnalysisView.tsx EXACTLY.
+     */
+    public computeCanonicalMetrics(diagnostics: DiagnosticItem[]): { holisticScorecard: HolisticScorecard, computedRoi: ComputedRoi } {
+        // Helper: Normalize Score
+        const normalizeScore = (val: number | undefined): number => {
+            if (val === undefined || val === null || isNaN(val)) return 0;
+            return val <= 10 ? Math.round(val * 10) : Math.round(val);
+        };
+
+        // Helper: Get Rubric Tier
+        const getRubricTier = (score: number): string => {
+            if (score >= 90) return "Outstanding";
+            if (score >= 80) return "Excellent";
+            if (score >= 60) return "Good";
+            if (score >= 40) return "Average";
+            return "Poor";
+        };
+
+        // 1. Holistic Scorecard
+        const avgScore = Math.round(diagnostics.reduce((acc, curr) => acc + normalizeScore(curr.score), 0) / (diagnostics.length || 1));
+        const rubricTier = getRubricTier(avgScore);
+
+        // 2. Computed ROI (Strict UI Replication)
+        // const getDiagScore = (idx: number) => d ? normalizeScore(d.score) : 50;
+        const getS = (idx: number) => {
+            const d = diagnostics[idx];
+            return d ? normalizeScore(d.score) : 50;
+        };
+
+        const overallScore = avgScore; // Same as above
+        const upliftFactor = 1.25;
+        const constrainedRoi = Math.min(10, (overallScore / 10) * upliftFactor);
+
+        // UI Formula: +((constrainedRoi - 10) / 10 * 100).toFixed(0)%
+        const optimizationPercent = parseFloat(((constrainedRoi - 10) / 10 * 100).toFixed(0));
+
+        // CRI Calculation
+        const cri = {
+            clear: getS(6),
+            captivating: getS(0),
+            relevant: getS(5),
+            unique: getS(9),
+            credible: getS(7),
+            motivating: getS(3)
+        };
+
+        // Potentials Calculation
+        const hookCur = getS(1);
+        const hookPot = Math.min(100, hookCur * 1.4);
+
+        const vtrCur = getS(5);
+        const vtrPot = Math.min(100, vtrCur * 1.3);
+
+        const ctrCur = getS(4) / 10;
+        const ctrPot = Math.min(10, ctrCur * 1.5);
+
+        const dropCur = 80 - (getS(0) * 0.5);
+        const dropPot = Math.max(10, dropCur * 0.7);
+
+        const clarCur = getS(6) / 10;
+        const clarPot = Math.min(10, clarCur * 1.3);
+
+        const visCur = getS(3) / 10;
+        const visPot = Math.min(10, visCur * 1.4);
+
+        // Distinctiveness uses idx 3 (Motivating? No wait check UI)
+        // Checking AnalysisView.tsx line 1141: title="Visual Distinctiveness" ... current={visCur} (from getDiagScore(3))
+        // So yes, idx 3 is used for Visual Distinctiveness in UI logic?
+        // Wait, line 1088 says: Motivating -> getDiagScore(3).
+        // So index 3 is used for both Motivating (CRI) and Visual Distinctiveness (ROI).
+        // This is a UI redundancy, but we must replicate it.
+
+        return {
+            holisticScorecard: {
+                averageScore: avgScore,
+                rubricTier
+            },
+            computedRoi: {
+                overallScore,
+                upliftFactor,
+                constrainedRoi,
+                optimizationPercent,
+                cri,
+                potentials: {
+                    hook: hookPot,
+                    vtr: vtrPot,
+                    ctr: ctrPot,
+                    dropoff: dropPot,
+                    clarity: clarPot,
+                    distinctiveness: visPot
+                }
+            }
+        };
+    }
 }
 
 // Singleton

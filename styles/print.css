@@ -1,0 +1,66 @@
+/* Print-only styles - scoped to @media print and .print-mode */
+
+@media print {
+    /* Page setup */
+    @page {
+        size: letter;
+        margin: 0.5in;
+    }
+
+    /* Force background graphics */
+    * {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+
+    /* Hide non-printable elements */
+    .no-print {
+        display: none !important;
+    }
+
+    /* Disable animations */
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0s !important;
+        transition-duration: 0s !important;
+    }
+
+    /* Page break controls */
+    h1, h2, h3, h4, h5, h6 {
+        page-break-after: avoid;
+        page-break-inside: avoid;
+    }
+
+    section {
+        page-break-inside: avoid;
+    }
+
+    /* Ensure readability */
+    body {
+        font-size: 10pt;
+        line-height: 1.4;
+    }
+}
+
+/* Print-mode class for deterministic rendering */
+.print-mode {
+    /* Remove hover states */
+    * {
+        pointer-events: none !important;
+    }
+
+    /* Hide interactive controls */
+    button:not(.print-badge),
+    input,
+    textarea,
+    select,
+    [role="button"]:not(.print-badge) {
+        display: none !important;
+    }
+
+    /* Force expanded state */
+    [data-collapsed="true"] {
+        display: block !important;
+    }
+}

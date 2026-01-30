@@ -45,6 +45,8 @@ interface AnalysisResult {
     brandStrategyWindow: any[];
     brandArchetypeDetail?: any;
     roiMetrics?: any;
+    holisticScorecard?: any;
+    computedRoi?: any;
     modelHealth?: any;
     validationSuite?: any;
     campaignStrategy?: any;
@@ -860,6 +862,8 @@ const analyzeCollateralHybrid = async (
         brandStrategyWindow: hasBrandStrategy ? strategicAnalysis.brandAnalysis.brandStrategyWindow : undefined,
         brandArchetypeDetail: hasBrandArchetype ? strategicAnalysis.brandAnalysis.brandArchetypeDetail : undefined,
         roiMetrics: strategicAnalysis.roiMetrics,
+        holisticScorecard: strategicAnalysis.holisticScorecard, // PASSTHROUGH Canonical
+        computedRoi: strategicAnalysis.computedRoi,             // PASSTHROUGH Canonical
         modelHealth: strategicAnalysis.modelHealth,
         validationSuite: strategicAnalysis.validationSuite,
         industry: strategicAnalysis.industry,
@@ -990,6 +994,13 @@ CRITICAL: You MUST generate exactly 10 items for 'brandStrategyWindow' covering 
             }
         };
 
+        // Compute Canonical Metrics for Text-Only (Single Source of Truth)
+        const groqAnalyzer = getGroqAnalyzer();
+        const { holisticScorecard, computedRoi } = groqAnalyzer.computeCanonicalMetrics(result.adDiagnostics);
+
+        result.holisticScorecard = holisticScorecard;
+        result.computedRoi = computedRoi;
+
 
         return {
             ...result,
@@ -1076,15 +1087,26 @@ const analyzeCollateralSmart = async (
     secondaryVideoUrl?: string | null
 ): Promise<AnalysisResult> => {
     console.log(`[RUNTIME-VERIFY] analyzeCollateralSmart called`);
+    let result: AnalysisResult;
     if (USE_HYBRID_ANALYSIS) {
         console.log('[ROUTER] Using HYBRID mode (Gemini + Groq)');
         console.log(`[RUNTIME-VERIFY] Routing to: analyzeCollateralHybrid`);
-        return analyzeCollateralHybrid(textContext, analysisLabel, fileData, mimeType, fileUri, secondaryVideoUrl);
+        result = await analyzeCollateralHybrid(textContext, analysisLabel, fileData, mimeType, fileUri, secondaryVideoUrl);
     } else {
         console.log('[ROUTER] Using LEGACY mode (Gemini only)');
         console.log(`[RUNTIME-VERIFY] Routing to: analyzeCollateral (legacy)`);
-        return analyzeCollateral(textContext, analysisLabel, fileData, mimeType, fileUri);
+        result = await analyzeCollateral(textContext, analysisLabel, fileData, mimeType, fileUri);
     }
+
+    // VERIFICATION LOG
+    console.log(`[RUNTIME-VERIFY] holisticScorecard attached: ${!!result.holisticScorecard}`);
+    if (result.holisticScorecard) {
+        console.log(`[RUNTIME-VERIFY] Canonical Tier: ${result.holisticScorecard.rubricTier}`);
+    } else {
+        console.warn(`[RUNTIME-VERIFY] CRITICAL: holisticScorecard MISSING in ${USE_HYBRID_ANALYSIS ? 'HYBRID' : 'LEGACY'} result!`);
+    }
+
+    return result;
 };
 
 // --- EXPRESS SERVER ---
@@ -1719,6 +1741,79 @@ app.post('/api/cross-industry-insights', async (req: Request, res: Response, nex
 // GA4 Routes
 app.use('/api/ga4', ga4Router);
 
+// POST /api/reports/print - NEW UI-AS-SOURCE PDF GENERATION
+app.post('/api/reports/print', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { snapshot } = req.body;
+        console.log('[API_STEP_1] /api/reports/print called');
+        console.log('[API_DEBUG] Snapshot keys:', Object.keys(snapshot || {}));
+
+        if (!snapshot) {
+            throw new ValidationError("Snapshot data is required for print generation");
+        }
+
+        console.log('[API_STEP_2] Importing services...');
+        // Import token store and PDF service
+        const { printTokenStore } = await import('./services/printTokenStore.js');
+        const { generatePdfFromPrintRoute } = await import('./services/pdfService.js');
+        console.log('[API_STEP_3] Services imported successfully');
+
+        // Create single-use token
+        console.log('[API_STEP_4] Creating print token...');
+        const token = printTokenStore.createToken(snapshot);
+        console.log(`[API_STEP_5] Created print token: ${token.substring(0, 8)}...`);
+
+        console.log('[API_STEP_6] Calling generatePdfFromPrintRoute...');
+        // Generate PDF via print route
+        const pdfBuffer = await generatePdfFromPrintRoute(token);
+        console.log(`[API_STEP_7] PDF generation returned buffer of ${pdfBuffer.length} bytes`);
+
+        console.log('[API_STEP_8] Checking response headers sent status...');
+        console.log('[API_DEBUG] response.headersSent:', res.headersSent);
+
+        console.log('[API_STEP_9] Setting response headers...');
+        // Send PDF
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=StrataPilot_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        console.log('[API_STEP_10] Response headers set successfully');
+
+        console.log('[API_STEP_11] Sending PDF buffer to client...');
+        res.send(pdfBuffer);
+        console.log('[API_STEP_12] PDF sent successfully. Request complete.');
+
+    } catch (error) {
+        console.error('[API_FATAL] Error in print route:', error);
+        console.error('[API_FATAL] Error stack:', (error as Error).stack);
+        console.error('[API_DEBUG] response.headersSent at error:', res.headersSent);
+        next(error);
+    }
+});
+
+// GET /api/reports/snapshot/:token - RETRIEVE PRINT SNAPSHOT
+app.get('/api/reports/snapshot/:token', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { token } = req.params;
+        console.log(`[API] Snapshot requested for token: ${token.substring(0, 8)}...`);
+
+        const { printTokenStore } = await import('./services/printTokenStore.js');
+        const snapshot = printTokenStore.consumeToken(token);
+
+        if (!snapshot) {
+            return res.status(404).json({
+                success: false,
+                error: 'Invalid or expired print token'
+            });
+        }
+
+        console.log('[API] Snapshot retrieved and token consumed');
+        res.json(snapshot);
+
+    } catch (error) {
+        next(error);
+    }
+});
+
 // POST /api/reports/generate - HEADLESS PDF GENERATION (HARD GATE FIX)
 app.post('/api/reports/generate', async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -1747,14 +1842,30 @@ app.post('/api/reports/generate', async (req: Request, res: Response, next: Next
     }
 });
 
-// Serve static files from the dist directory
-const distPath = path.join(__dirname, '..', 'dist');
-app.use(express.static(distPath));
+// --- FRONTEND SERVING (Vite Middleware vs Static) ---
+const isProduction = process.env.NODE_ENV === 'production';
 
-// SPA fallback - serve index.html for all non-API routes
-app.get('*', (req: Request, res: Response) => {
-    res.sendFile(path.join(distPath, 'index.html'));
-});
+if (!isProduction) {
+    console.log('[SERVER] 🛠️  Dev Mode: Attaching Vite Middleware...');
+    // Dynamic import to avoid production dependency
+    const { createServer } = await import('vite');
+    const vite = await createServer({
+        server: { middlewareMode: true },
+        appType: 'spa', // Handles index.html fallback
+    });
+    app.use(vite.middlewares);
+    console.log('[SERVER] Vite Middleware attached. HMR enabled on port 3000.');
+} else {
+    // PRODUCTION: Serve static files from the dist directory
+    const distPath = path.join(__dirname, '..', 'dist');
+    console.log(`[SERVER] 🚀 Production Mode: Serving static files from ${distPath}`);
+    app.use(express.static(distPath));
+
+    // SPA fallback - serve index.html for all non-API routes
+    app.get('*', (req: Request, res: Response) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+    });
+}
 
 // --- SERVER STARTUP ---
 const errorHandler = (err: any, req: any, res: Response, next: NextFunction) => {

@@ -40,16 +40,14 @@ export class GroqClient {
      */
     private initializeKeyPool(): void {
         const keys: string[] = [];
+        const envKeys = process.env.GROQ_API_KEYS;
 
-        // Support up to 3 API keys
-        for (let i = 1; i <= 3; i++) {
-            const key = process.env[`GROQ_API_KEY_${i}`];
-            if (key) {
-                keys.push(key);
-            }
+        if (envKeys) {
+            // Option B: Comma-separated keys
+            keys.push(...envKeys.split(',').map(k => k.trim()).filter(k => k.length > 0));
         }
 
-        // Fallback to single key
+        // Fallback to legacy single key if no pool defined
         if (keys.length === 0) {
             const singleKey = process.env.GROQ_API_KEY;
             if (singleKey) {
@@ -58,7 +56,7 @@ export class GroqClient {
         }
 
         if (keys.length === 0) {
-            console.warn('[GroqClient] No GROQ_API_KEY found. Groq calls will fail.');
+            throw new Error('[GroqClient] No valid API keys found in GROQ_API_KEYS or GROQ_API_KEY.');
         }
 
         this.keyPool = keys.map(key => ({
@@ -104,7 +102,9 @@ export class GroqClient {
      */
     private markRateLimited(entry: KeyPoolEntry, retryAfterSeconds: number = 60): void {
         entry.rateLimitedUntil = new Date(Date.now() + retryAfterSeconds * 1000);
-        console.warn(`[GroqClient] Key rate limited until ${entry.rateLimitedUntil.toISOString()}`);
+        // Find index for logging
+        const index = this.keyPool.indexOf(entry);
+        console.log(`[GroqClient] Key ${index} temporarily rate-limited, skipping`);
     }
 
     /**

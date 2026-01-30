@@ -55,6 +55,7 @@ interface AnalysisViewProps {
   onGenerateStrategy: () => void;
   isStrategizing: boolean;
   activeMode: string;
+  printMode?: boolean;
 }
 
 const normalizeScore = (val: number | undefined): number => {
@@ -284,7 +285,7 @@ const KeyDeterminants: React.FC<{ driver: DiagnosticItem, detractor: DiagnosticI
   );
 };
 
-const ExecutiveRecommendationCard: React.FC<{ item: DiagnosticItem, index: number, onUpdate: (u: Partial<DiagnosticItem>) => void }> = ({ item, index, onUpdate }) => {
+const ExecutiveRecommendationCard: React.FC<{ item: DiagnosticItem, index: number, onUpdate: (u: Partial<DiagnosticItem>) => void, printMode?: boolean }> = ({ item, index, onUpdate, printMode = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editCommentary, setEditCommentary] = useState(item.commentary);
   const [editRec, setEditRec] = useState(item.recommendation);
@@ -305,14 +306,14 @@ const ExecutiveRecommendationCard: React.FC<{ item: DiagnosticItem, index: numbe
             {item.metric}
           </h4>
         </div>
-        {!isEditing ? (
+        {!printMode && (!isEditing ? (
           <button onClick={() => setIsEditing(true)} className="text-slate-300 hover:text-indigo-600 transition-colors"><Pencil size={14} /></button>
         ) : (
           <div className="flex gap-2">
             <button onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
             <button onClick={handleSave} className="text-emerald-500 hover:text-emerald-600"><Check size={14} /></button>
           </div>
-        )}
+        ))}
       </div>
       <div className="space-y-6 flex-grow relative z-10">
         <div className="space-y-2">
@@ -342,8 +343,8 @@ const ExecutiveRecommendationCard: React.FC<{ item: DiagnosticItem, index: numbe
   );
 };
 
-const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Partial<DiagnosticItem>) => void }> = ({ item, onUpdate }) => {
-  const [expanded, setExpanded] = useState(false);
+const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Partial<DiagnosticItem>) => void, printMode?: boolean }> = ({ item, onUpdate, printMode = false }) => {
+  const [expanded, setExpanded] = useState(printMode ? true : false);
   const [isEditing, setIsEditing] = useState(false);
   const [editScore, setEditScore] = useState(normalizeScore(item.score).toString());
   const [editCommentary, setEditCommentary] = useState(item.commentary);
@@ -464,7 +465,7 @@ const DiagnosticCard: React.FC<{ item: DiagnosticItem, onUpdate: (updates: Parti
   );
 };
 
-const BrandArchetypeMatrix: React.FC<{ detail: BrandArchetypeDetail, onUpdate: (d: BrandArchetypeDetail) => void }> = ({ detail, onUpdate }) => {
+const BrandArchetypeMatrix: React.FC<{ detail: BrandArchetypeDetail, onUpdate: (d: BrandArchetypeDetail) => void, printMode?: boolean }> = ({ detail, onUpdate, printMode = false }) => {
   // REMOVED DEFENSIVE GUARD - ALWAYS RENDER INFERRED/PARTIAL DATA
   if (!detail) return null;
 
@@ -508,9 +509,11 @@ const BrandArchetypeMatrix: React.FC<{ detail: BrandArchetypeDetail, onUpdate: (
           </div>
         </div>
         {detail.isHumanEdited && <EditorialBadge />}
-        <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className={`p-2 rounded-full transition-colors ${isEditing ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-slate-50 text-slate-400 hover:text-indigo-600'}`}>
-          {isEditing ? <Check size={20} /> : <Pencil size={20} />}
-        </button>
+        {!printMode && (
+          <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} className={`p-2 rounded-full transition-colors ${isEditing ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-slate-50 text-slate-400 hover:text-indigo-600'}`}>
+            {isEditing ? <Check size={20} /> : <Pencil size={20} />}
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-white rounded-[32px] p-8 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] border border-slate-100">
@@ -568,7 +571,7 @@ const BrandArchetypeMatrix: React.FC<{ detail: BrandArchetypeDetail, onUpdate: (
   );
 };
 
-const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[], onUpdate: (c: BrandStrategyCard[]) => void }> = ({ cards, onUpdate }) => {
+const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[], onUpdate: (c: BrandStrategyCard[]) => void, printMode?: boolean }> = ({ cards, onUpdate, printMode = false }) => {
   // REMOVED DEFENSIVE GUARD - RENDER AVAILABLE CARDS
   const safeCards = cards || [];
   const [editingCardIndex, setEditingCardIndex] = useState<number | null>(null);
@@ -633,7 +636,7 @@ const BrandStrategyWindow: React.FC<{ cards: BrandStrategyCard[], onUpdate: (c: 
                 <div className={`w-10 h-10 ${theme.bg} rounded-xl flex items-center justify-center ${theme.color} shadow-sm group-hover:scale-110 transition-transform`}>
                   <theme.icon size={20} />
                 </div>
-                {!isEditing && (
+                {!printMode && !isEditing && (
                   <button onClick={() => handleStartEdit(idx, card)} className="text-slate-300 hover:text-indigo-600"><Pencil size={12} /></button>
                 )}
               </div>
@@ -858,7 +861,7 @@ const ValueUnlockingCard: React.FC<{
 // PdfDiagnosticPage removed - using isolated component in PdfSystem
 
 
-export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, onGenerateStrategy, onExport, isStrategizing, activeMode }) => {
+export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, onGenerateStrategy, onExport, isStrategizing, activeMode, printMode = false }) => {
   const { save } = usePersistence(data, onUpdateData);
   console.log("ANTIGRAVITY_FIX_V2: AnalysisView mounted", { hookCurDefined: true });
   const [activeTab, setActiveTab] = useState("scorecard");
@@ -897,8 +900,8 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
     fullMark: 100
   }));
 
-  const avgScore = Math.round(diagnostics.reduce((acc, curr) => acc + normalizeScore(curr.score), 0) / (diagnostics.length || 1));
-  const avgTier = getRubricTier(avgScore);
+  const avgScore = data.holisticScorecard?.averageScore ?? Math.round(diagnostics.reduce((acc, curr) => acc + normalizeScore(curr.score), 0) / (diagnostics.length || 1));
+  const avgTier = data.holisticScorecard?.rubricTier ?? getRubricTier(avgScore);
 
   const tabs = [
     { id: "scorecard", label: "Scorecard" },
@@ -930,24 +933,25 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
     ? data.adDiagnostics.reduce((acc, d) => acc + normalizeScore(d.score), 0) / data.adDiagnostics.length
     : 50;
 
-  const upliftFactor = 1.25;
-  const constrainedRoi = Math.min(10, (overallScore / 10) * upliftFactor);
+  const upliftFactor = data.computedRoi?.upliftFactor ?? 1.25;
+  const constrainedRoi = data.computedRoi?.constrainedRoi ?? Math.min(10, (overallScore / 10) * upliftFactor);
+  const optimizationPercent = data.computedRoi?.optimizationPercent ?? parseFloat(((constrainedRoi - 10) / 10 * 100).toFixed(0));
 
   const hookCur = getDiagScore(1);
-  const hookPot = Math.min(100, hookCur * 1.4);
+  const hookPot = data.computedRoi?.potentials.hook ?? Math.min(100, hookCur * 1.4);
   const vtrCur = getDiagScore(5);
-  const vtrPot = Math.min(100, vtrCur * 1.3);
+  const vtrPot = data.computedRoi?.potentials.vtr ?? Math.min(100, vtrCur * 1.3);
   const ctrCur = getDiagScore(4) / 10;
-  const ctrPot = Math.min(10, ctrCur * 1.5);
+  const ctrPot = data.computedRoi?.potentials.ctr ?? Math.min(10, ctrCur * 1.5);
   const dropCur = 80 - (getDiagScore(0) * 0.5);
-  const dropPot = Math.max(10, dropCur * 0.7);
+  const dropPot = data.computedRoi?.potentials.dropoff ?? Math.max(10, dropCur * 0.7);
   const clarCur = getDiagScore(6) / 10;
-  const clarPot = Math.min(10, clarCur * 1.3);
+  const clarPot = data.computedRoi?.potentials.clarity ?? Math.min(10, clarCur * 1.3);
   const visCur = getDiagScore(3) / 10;
-  const visPot = Math.min(10, visCur * 1.4);
+  const visPot = data.computedRoi?.potentials.distinctiveness ?? Math.min(10, visCur * 1.4);
 
   return (
-    <div className="w-full bg-[#f8fafc] p-6 lg:p-10 font-sans text-slate-900 pb-32 rounded-3xl shadow-sm border border-slate-200">
+    <div className={`w-full bg-[#f8fafc] p-6 lg:p-10 font-sans text-slate-900 pb-32 rounded-3xl shadow-sm border border-slate-200 ${printMode ? 'print-mode' : ''}`}>
       {/* HEADER & CONTROLS */}
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
         <div>
@@ -961,82 +965,108 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={handleExport} disabled={isExporting} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-indigo-600 transition-colors shadow-lg active:scale-95 disabled:opacity-50 min-w-[160px] justify-center">
-            {isExporting ? <><Loader2 className="animate-spin" size={16} /> Downloading...</> : <><FileDown size={16} /> Export Report</>}
-          </button>
-        </div>
+        {!printMode && (
+          <div className="flex items-center gap-3">
+            <button onClick={handleExport} disabled={isExporting} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-indigo-600 transition-colors shadow-lg active:scale-95 disabled:opacity-50 min-w-[160px] justify-center">
+              {isExporting ? <><Loader2 className="animate-spin" size={16} /> Downloading...</> : <><FileDown size={16} /> Export Report</>}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* NAVIGATION TABS */}
-      <div className="max-w-7xl mx-auto mb-8 overflow-x-auto pb-4 custom-scrollbar">
-        <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 w-fit">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
-                }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+      {!printMode && (
+        <div className="max-w-7xl mx-auto mb-8 overflow-x-auto pb-4 custom-scrollbar">
+          <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 w-fit">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="max-w-5xl mx-auto">
         {/* TAB 1: SCORECARD */}
-        {activeTab === 'scorecard' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-            <div className="bg-white rounded-[32px] p-8 shadow-xl border border-slate-100 flex flex-col items-center justify-center min-h-[500px]">
-              <div className="w-full h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
-                    <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                    <RechartsRadar name="Benchmark Score" dataKey="B" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" fill="transparent" />
-                    <RechartsRadar name="Your Score" dataKey="A" stroke="#4f46e5" strokeWidth={3} fill="#4f46e5" fillOpacity={0.15} />
-                    <Tooltip />
-                    <Legend />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            <div className="space-y-6">
-              <div className="bg-white rounded-[32px] p-10 shadow-xl border border-slate-100 text-center">
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Overall Performance</h3>
-                <div className="text-8xl font-black text-slate-900 mb-2 tracking-tighter">{avgScore}</div>
-                <div className={`inline-block px-6 py-2 rounded-full text-sm font-black uppercase tracking-widest ${getTierStyles(avgTier)}`}>
-                  {avgTier} Tier
+        {(printMode || activeTab === 'scorecard') && (
+          <div style={printMode ? { /* First section: no page break to keep header and content together */ } : {}}>            <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+              <div className="bg-white rounded-[32px] p-8 shadow-xl border border-slate-100 flex flex-col items-center justify-center min-h-[500px]">
+                <div className="w-full h-[400px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
+                      <PolarGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 900 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                      <RechartsRadar name="Benchmark Score" dataKey="B" stroke="#94a3b8" strokeWidth={2} strokeDasharray="4 4" fill="transparent" />
+                      <RechartsRadar name="Your Score" dataKey="A" stroke="#4f46e5" strokeWidth={3} fill="#4f46e5" fillOpacity={0.15} />
+                      <Tooltip />
+                      <Legend />
+                    </RadarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
-              <div className="bg-indigo-900 rounded-[32px] p-8 shadow-xl text-white relative overflow-hidden">
-                <div className="relative z-10">
-                  <h3 className="text-lg font-bold mb-2">Executive Summary</h3>
-                  <p className="text-xs text-indigo-200 leading-relaxed mb-4">
-                    Analysis complete across {diagnostics.length} key dimensions.
-                    Optimization potential identified in {(diagnostics.filter(d => normalizeScore(d.score) < 60)).length} areas.
-                  </p>
+              <div className="space-y-6">
+                <div className="bg-white rounded-[32px] p-10 shadow-xl border border-slate-100 text-center">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Overall Performance</h3>
+                  <div className="text-8xl font-black text-slate-900 mb-2 tracking-tighter">{avgScore}</div>
+                  <div className={`inline-block px-6 py-2 rounded-full text-sm font-black uppercase tracking-widest ${getTierStyles(avgTier)}`}>
+                    {avgTier} Tier
+                  </div>
+                </div>
+                <div className="bg-indigo-900 rounded-[32px] p-8 shadow-xl text-white relative overflow-hidden">
+                  <div className="relative z-10">
+                    <h3 className="text-lg font-bold mb-2">Executive Summary</h3>
+                    <p className="text-xs text-indigo-200 leading-relaxed mb-4">
+                      Analysis complete across {diagnostics.length} key dimensions.
+                      Optimization potential identified in {(diagnostics.filter(d => normalizeScore(d.score) < 60)).length} areas.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+          </div>
         )}
 
-        {/* DIAGNOSTICS TABS */}
-        {activeTab.startsWith('diagnostic-') && (
-          (() => {
+        {/* DIAGNOSTICS TABS - In printMode, render ALL diagnostics */}
+        {printMode ? (
+          // PRINT MODE: Render all diagnostics, each on its own page
+          diagnostics.map((item, idx) => (
+            <div key={`diagnostic-print-${idx}`} style={{ pageBreakBefore: 'always', breakBefore: 'page' }}>
+              <ErrorBoundary>
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                  <div className="lg:col-span-2">
+                    <ExecutiveRecommendationCard item={item} index={idx} onUpdate={updates => handleUpdateDiagnostic(idx, updates)} printMode={printMode} />
+                  </div>
+                  <div className="lg:col-span-3">
+                    <DiagnosticCard item={item} onUpdate={updates => handleUpdateDiagnostic(idx, updates)} printMode={printMode} />
+                  </div>
+                </div>
+              </ErrorBoundary>
+            </div>
+          ))
+        ) : (
+          // INTERACTIVE MODE: Render only active diagnostic tab
+          activeTab.startsWith('diagnostic-') && (() => {
             const idx = parseInt(activeTab.split('-')[1]);
             const item = diagnostics[idx];
             if (!item) return null;
             return (
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 h-[700px]">
-                <div className="lg:col-span-2 h-full">
-                  <ExecutiveRecommendationCard item={item} index={idx} onUpdate={updates => handleUpdateDiagnostic(idx, updates)} />
-                </div>
-                <div className="lg:col-span-3 h-full">
-                  <DiagnosticCard item={item} onUpdate={updates => handleUpdateDiagnostic(idx, updates)} />
+              <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-500">
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 h-[700px]">
+                  <div className="lg:col-span-2 h-full">
+                    <ExecutiveRecommendationCard item={item} index={idx} onUpdate={updates => handleUpdateDiagnostic(idx, updates)} printMode={printMode} />
+                  </div>
+                  <div className="lg:col-span-3 h-full">
+                    <DiagnosticCard item={item} onUpdate={updates => handleUpdateDiagnostic(idx, updates)} printMode={printMode} />
+                  </div>
                 </div>
               </div>
             );
@@ -1044,7 +1074,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
         )}
 
         {/* TAB 9: STRATEGY PLAN */}
-        {activeTab === 'strategy-plan' && data.campaignStrategy && (
+        {(printMode || activeTab === 'strategy-plan') && data.campaignStrategy && (
           <ErrorBoundary>
             <StrategyView strategy={data.campaignStrategy} onUpdate={(s) => onUpdateData({ ...data, campaignStrategy: s })} />
           </ErrorBoundary>
@@ -1052,32 +1082,38 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
 
         {/* TAB 6: BRAND STRATEGY */}
         {
-          activeTab === "brand-strategy" && (
-            <ErrorBoundary>
-              <BrandStrategyWindow
-                cards={data.brandStrategyWindow || []}
-                onUpdate={(cards) => onUpdateData({ ...data, brandStrategyWindow: cards })}
-              />
-            </ErrorBoundary>
+          (printMode || activeTab === "brand-strategy") && (
+            <div className="space-y-8" style={printMode ? { pageBreakBefore: 'always', breakBefore: 'page' } : {}}>
+              <ErrorBoundary>
+                <BrandStrategyWindow
+                  cards={data.brandStrategyWindow || []}
+                  onUpdate={(cards) => onUpdateData({ ...data, brandStrategyWindow: cards })}
+                  printMode={printMode}
+                />
+              </ErrorBoundary>
+            </div>
           )
         }
 
         {/* TAB 7: BRAND ARCHETYPE */}
         {
-          activeTab === "brand-archetype" && (
-            <ErrorBoundary>
-              <BrandArchetypeMatrix
-                detail={data.brandArchetypeDetail}
-                onUpdate={(detail) => onUpdateData({ ...data, brandArchetypeDetail: detail })}
-              />
-            </ErrorBoundary>
+          (printMode || activeTab === "brand-archetype") && (
+            <div className="space-y-8" style={printMode ? { pageBreakBefore: 'always', breakBefore: 'page' } : {}}>
+              <ErrorBoundary>
+                <BrandArchetypeMatrix
+                  detail={data.brandArchetypeDetail}
+                  onUpdate={(detail) => onUpdateData({ ...data, brandArchetypeDetail: detail })}
+                  printMode={printMode}
+                />
+              </ErrorBoundary>
+            </div>
           )
         }
 
         {/* TAB 8: ROI UPLIFT */}
         {
-          activeTab === "roi-uplift" && (
-            <div className="space-y-6">
+          (printMode || activeTab === "roi-uplift") && (
+            <div className="space-y-6" style={printMode ? { pageBreakBefore: 'always', breakBefore: 'page' } : {}}>
               <div className="bg-slate-900 text-white p-3 rounded-full text-center shadow-md"><h4 className="text-[10px] font-black uppercase tracking-[0.3em]">ROI UPLIFT</h4></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <CRICard label="Clear" value={getDiagScore(6)} definition="Message understood instantly." science="Processing fluency." />
@@ -1147,7 +1183,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
                 <div className="mt-8 pt-6 border-t border-indigo-500/30 flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <div className="bg-emerald-500 text-white px-3 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-emerald-900/50">
-                      +{((constrainedRoi - 10) / 10 * 100).toFixed(0)}% OPTIMIZATION
+                      +{optimizationPercent}% OPTIMIZATION
                     </div>
                     <div className="relative group/edit block md:block">
                       <p className="text-[10px] text-indigo-200 max-w-md leading-relaxed">
@@ -1186,41 +1222,43 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ data, onUpdateData, 
       </div >
 
       {/* FOOTER NAVIGATION BUTTONS */}
-      < div className="flex justify-between items-center pt-8 border-t border-slate-100 mt-8" >
-        <button
-          onClick={handlePrev}
-          disabled={activeTab === tabs[0].id}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all
+      {!printMode && (
+        <div className="flex justify-between items-center pt-8 border-t border-slate-100 mt-8">
+          <button
+            onClick={handlePrev}
+            disabled={activeTab === tabs[0].id}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all
              ${activeTab === tabs[0].id
-              ? 'text-slate-300 cursor-not-allowed'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-indigo-600'
-            }`}
-        >
-          <ChevronDown size={16} className="rotate-90" /> Previous Section
-        </button>
+                ? 'text-slate-300 cursor-not-allowed'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-indigo-600'
+              }`}
+          >
+            <ChevronDown size={16} className="rotate-90" /> Previous Section
+          </button>
 
-        <div className="flex gap-1.5">
-          {tabs.map(t => (
-            <div
-              key={t.id}
-              className={`w-2 h-2 rounded-full transition-all duration-300 ${activeTab === t.id ? 'bg-indigo-600 w-6' : 'bg-slate-200'}`}
-            />
-          ))}
-        </div>
+          <div className="flex gap-1.5">
+            {tabs.map(t => (
+              <div
+                key={t.id}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${activeTab === t.id ? 'bg-indigo-600 w-6' : 'bg-slate-200'}`}
+              />
+            ))}
+          </div>
 
-        <button
-          onClick={handleNext}
-          disabled={activeTab === tabs[tabs.length - 1].id}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all
+          <button
+            onClick={handleNext}
+            disabled={activeTab === tabs[tabs.length - 1].id}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all
             ${activeTab === tabs[tabs.length - 1].id
-              ? 'text-slate-300 cursor-not-allowed'
-              : 'bg-slate-900 text-white hover:bg-indigo-900 shadow-lg'
-            }`}
-        >
-          Next Section <ArrowRight size={16} />
-        </button>
-      </div >
+                ? 'text-slate-300 cursor-not-allowed'
+                : 'bg-slate-900 text-white hover:bg-indigo-900 shadow-lg'
+              }`}
+          >
+            Next Section <ArrowRight size={16} />
+          </button>
+        </div>
+      )}
 
-    </div >
+    </div>
   );
 };

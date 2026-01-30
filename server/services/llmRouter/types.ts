@@ -11,12 +11,12 @@
  * Intent categories for routing decisions
  */
 export type TaskIntent =
-    | 'analysis'        // Deep diagnostic analysis (DeepSeek for structured, Llama for narrative)
+    | 'analysis'        // Deep diagnostic analysis (Llama 3.3 for structured, Llama for narrative)
     | 'summarization'   // Compress long content (Qwen3)
     | 'ideation'        // Creative generation (Llama 3.3)
     | 'classification'  // Quick categorization (Llama 3.1 8B)
-    | 'reasoning'       // Complex logic/math (DeepSeek)
-    | 'critique';       // Validation pass (DeepSeek)
+    | 'reasoning'       // Complex logic/math (Llama 3.3, DeepSeek unavailable)
+    | 'critique';       // Validation pass (Llama 3.3, DeepSeek unavailable)
 
 /**
  * Complexity levels for routing decisions

@@ -18,7 +18,7 @@ import type {
 /**
  * Correct model assignments based on senior review:
  * - Llama 3.3: Creative, narratives, ideation, general analysis
- * - DeepSeek: Structured reasoning, diagnostic scoring, critique, validation
+ * - DeepSeek: Unavailable (replaced by Llama 3.3 for reasoning/critique)
  * - Qwen3: Summarization, long-context comprehension
  * - Llama 3.1 8B: Fast classification, simple tasks
  */

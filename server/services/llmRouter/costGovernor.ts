@@ -20,21 +20,14 @@ interface BudgetConfig {
  */
 const MODEL_COST_CLASS: Record<GroqModelId, 'low' | 'medium' | 'high'> = {
     'llama-3.1-8b-instant': 'low',
-    'gemma2-9b-it': 'low',
-    'mistral-saba-24b': 'low',
     'llama-3.3-70b-versatile': 'medium',
     'qwen/qwen3-32b': 'medium',
-    'deepseek-r1-distill-qwen-32b': 'medium',
-    'deepseek-r1-distill-llama-70b': 'high',
 };
 
 /**
  * Default downgrade paths when budget is low
  */
 const DOWNGRADE_PATHS: Partial<Record<GroqModelId, GroqModelId>> = {
-    'deepseek-r1-distill-llama-70b': 'deepseek-r1-distill-qwen-32b',
-    'deepseek-r1-distill-qwen-32b': 'llama-3.3-70b-versatile',
-    'llama-3.3-70b-versatile': 'mistral-saba-24b',
     'qwen/qwen3-32b': 'llama-3.1-8b-instant',
 };
 

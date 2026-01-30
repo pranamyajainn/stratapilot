@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Dashboard } from './pages/Dashboard';
 import { LandingPage } from './pages/LandingPage';
 import { CrossIndustryInsights } from './pages/CrossIndustryInsights';
+import PrintView from './pages/PrintView';
 import ErrorBoundary from './components/ErrorBoundary';
 
 export const App: React.FC = () => {
@@ -22,6 +23,9 @@ export const App: React.FC = () => {
 
           {/* Cross-Industry Insights (NEW) */}
           <Route path="/insights/cross-industry" element={<CrossIndustryInsights />} />
+
+          {/* Print Route (PDF Generation) */}
+          <Route path="/report/print" element={<PrintView />} />
 
           {/* Catch-all redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
