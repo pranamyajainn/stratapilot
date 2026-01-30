@@ -11,7 +11,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Database file location (same directory as insights.db)
-const DB_PATH = path.join(__dirname, '..', '..', 'creative_memory.db');
+// Database file location (same directory as insights.db)
+const DB_PATH = process.env.DATABASE_PATH
+  ? (path.isAbsolute(process.env.DATABASE_PATH) ? process.env.DATABASE_PATH : path.join(process.cwd(), process.env.DATABASE_PATH))
+  : path.join(__dirname, '..', '..', 'creative_memory.db');
 
 let db: Database.Database | null = null;
 
@@ -19,16 +22,16 @@ let db: Database.Database | null = null;
  * Initialize the Creative Memory database with required tables
  */
 export function initCreativeMemoryDatabase(): Database.Database {
-    if (db) return db;
+  if (db) return db;
 
-    console.log('[CreativeMemory] Initializing database at:', DB_PATH);
+  console.log('[CreativeMemory] Initializing database at:', DB_PATH);
 
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
+  db = new Database(DB_PATH);
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
 
-    // Table: creatives - Stores normalized creative objects
-    db.exec(`
+  // Table: creatives - Stores normalized creative objects
+  db.exec(`
     CREATE TABLE IF NOT EXISTS creatives (
       id TEXT PRIMARY KEY,
       source TEXT NOT NULL,
@@ -61,8 +64,8 @@ export function initCreativeMemoryDatabase(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_creatives_industry_niche ON creatives(industry, niche);
   `);
 
-    // Table: pattern_distributions - Cached aggregated patterns
-    db.exec(`
+  // Table: pattern_distributions - Cached aggregated patterns
+  db.exec(`
     CREATE TABLE IF NOT EXISTS pattern_distributions (
       id TEXT PRIMARY KEY,
       industry TEXT NOT NULL,
@@ -87,8 +90,8 @@ export function initCreativeMemoryDatabase(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_patterns_expires ON pattern_distributions(expires_at);
   `);
 
-    // Table: ingestion_log - Track ingestion runs
-    db.exec(`
+  // Table: ingestion_log - Track ingestion runs
+  db.exec(`
     CREATE TABLE IF NOT EXISTS ingestion_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       source TEXT NOT NULL,
@@ -106,8 +109,8 @@ export function initCreativeMemoryDatabase(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_ingestion_status ON ingestion_log(status);
   `);
 
-    // Table: niche_mappings - Custom industry-to-niche mappings learned over time
-    db.exec(`
+  // Table: niche_mappings - Custom industry-to-niche mappings learned over time
+  db.exec(`
     CREATE TABLE IF NOT EXISTS niche_mappings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       industry TEXT NOT NULL,
@@ -120,90 +123,90 @@ export function initCreativeMemoryDatabase(): Database.Database {
     );
   `);
 
-    console.log('[CreativeMemory] Database initialized successfully');
+  console.log('[CreativeMemory] Database initialized successfully');
 
-    return db;
+  return db;
 }
 
 /**
  * Get the database instance (initializes if needed)
  */
 export function getCreativeMemoryDb(): Database.Database {
-    if (!db) {
-        return initCreativeMemoryDatabase();
-    }
-    return db;
+  if (!db) {
+    return initCreativeMemoryDatabase();
+  }
+  return db;
 }
 
 /**
  * Close the database connection
  */
 export function closeCreativeMemoryDb(): void {
-    if (db) {
-        db.close();
-        db = null;
-        console.log('[CreativeMemory] Database connection closed');
-    }
+  if (db) {
+    db.close();
+    db = null;
+    console.log('[CreativeMemory] Database connection closed');
+  }
 }
 
 /**
  * Clean up expired records
  */
 export function cleanupExpiredRecords(): { creativesDeleted: number; patternsDeleted: number } {
-    const database = getCreativeMemoryDb();
-    const now = new Date().toISOString();
+  const database = getCreativeMemoryDb();
+  const now = new Date().toISOString();
 
-    const creativesResult = database.prepare(`
+  const creativesResult = database.prepare(`
     DELETE FROM creatives WHERE expires_at < ?
   `).run(now);
 
-    const patternsResult = database.prepare(`
+  const patternsResult = database.prepare(`
     DELETE FROM pattern_distributions WHERE expires_at < ?
   `).run(now);
 
-    const result = {
-        creativesDeleted: creativesResult.changes,
-        patternsDeleted: patternsResult.changes,
-    };
+  const result = {
+    creativesDeleted: creativesResult.changes,
+    patternsDeleted: patternsResult.changes,
+  };
 
-    if (result.creativesDeleted > 0 || result.patternsDeleted > 0) {
-        console.log('[CreativeMemory] Cleanup:', result);
-    }
+  if (result.creativesDeleted > 0 || result.patternsDeleted > 0) {
+    console.log('[CreativeMemory] Cleanup:', result);
+  }
 
-    return result;
+  return result;
 }
 
 /**
  * Get database statistics
  */
 export function getCreativeMemoryStats(): {
-    totalCreatives: number;
-    totalPatterns: number;
-    creativesBySource: Record<string, number>;
-    creativesByIndustry: Record<string, number>;
+  totalCreatives: number;
+  totalPatterns: number;
+  creativesBySource: Record<string, number>;
+  creativesByIndustry: Record<string, number>;
 } {
-    const database = getCreativeMemoryDb();
+  const database = getCreativeMemoryDb();
 
-    const totalCreatives = database.prepare(`
+  const totalCreatives = database.prepare(`
     SELECT COUNT(*) as count FROM creatives
   `).get() as { count: number };
 
-    const totalPatterns = database.prepare(`
+  const totalPatterns = database.prepare(`
     SELECT COUNT(*) as count FROM pattern_distributions
   `).get() as { count: number };
 
-    const bySource = database.prepare(`
+  const bySource = database.prepare(`
     SELECT source, COUNT(*) as count FROM creatives GROUP BY source
   `).all() as { source: string; count: number }[];
 
-    const byIndustry = database.prepare(`
+  const byIndustry = database.prepare(`
     SELECT industry, COUNT(*) as count FROM creatives GROUP BY industry
   `).all() as { industry: string; count: number }[];
 
-    return {
-        totalCreatives: totalCreatives.count,
-        totalPatterns: totalPatterns.count,
-        creativesBySource: Object.fromEntries(bySource.map(r => [r.source, r.count])),
-        creativesByIndustry: Object.fromEntries(byIndustry.map(r => [r.industry, r.count])),
-    };
+  return {
+    totalCreatives: totalCreatives.count,
+    totalPatterns: totalPatterns.count,
+    creativesBySource: Object.fromEntries(bySource.map(r => [r.source, r.count])),
+    creativesByIndustry: Object.fromEntries(byIndustry.map(r => [r.industry, r.count])),
+  };
 }

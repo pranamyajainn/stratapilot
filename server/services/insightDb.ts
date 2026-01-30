@@ -6,7 +6,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Database path
-const DB_PATH = path.join(__dirname, '../data/insights.db');
+// Database path
+const defaultPath = path.join(__dirname, '../data/insights.db');
+const DB_PATH = process.env.DATABASE_PATH
+    ? (path.isAbsolute(process.env.DATABASE_PATH) ? process.env.DATABASE_PATH : path.join(process.cwd(), process.env.DATABASE_PATH))
+    : defaultPath;
 
 // Initialize database
 let db: Database.Database;

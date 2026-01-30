@@ -1,9 +1,18 @@
 # Use a base image with full Debian (Bookworm) to easily install libraries
 FROM node:20-bookworm-slim
 
-# Install system dependencies for Puppeteer (Chromium)
+# Set Puppeteer env vars EARLY so they are available during install
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+# Config for better-sqlite3 build
+ENV PYTHON=/usr/bin/python3
+
+# Install system dependencies for Puppeteer & Native Modules
 RUN apt-get update && apt-get install -y \
     chromium \
+    build-essential \
+    python3 \
     ca-certificates \
     fonts-liberation \
     libasound2 \
@@ -51,8 +60,10 @@ ENV DATA_DIR="/data"
 
 # Dependency installation
 COPY package.json package-lock.json* ./
-# Install ALL dependencies (including dev) so we can run the build script
-RUN npm ci
+
+# Install ALL dependencies (FORCE include dev deps even if NODE_ENV=production)
+# We need devDeps (tsx, vite) for runtime and build
+RUN npm ci --include=dev
 
 # Copy app source
 COPY . .
@@ -60,14 +71,15 @@ COPY . .
 # Build frontend/types
 RUN npm run build --if-present
 
-# Prune dev dependencies to keep the image small
-RUN npm prune --production
+# NOTE: We do NOT prune dev dependencies because we run the server with 'tsx' (a dev dependency)
+# If we pruned, 'npm run server' would fail.
 
-# Env vars
+# Runtime Env Vars
 ENV NODE_ENV=production
 ENV PORT=10000
-# Tell Puppeteer to use the installed chrome
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-CMD ["npm", "start"]
+# Ensure database directory exists (if using relative paths fallback)
+RUN mkdir -p /app/server/data
+
+# Use 'npm run server' strictly to avoid re-triggering 'npm run build' (which is in 'npm start')
+CMD ["npm", "run", "server"]
