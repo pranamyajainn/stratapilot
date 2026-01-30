@@ -234,25 +234,34 @@ const safeGenerate = async <T>(
         try {
             const rawResponse = await generatorFn();
 
-            let responseText = "";
-            if (rawResponse && typeof rawResponse.text === 'function') {
-                responseText = rawResponse.text();
-            } else if (rawResponse && rawResponse.text) {
-                responseText = rawResponse.text;
+            // Case A: Response is already a valid object (Hybrid/Groq Mode)
+            // It might not have .text() method but is a valid result object.
+            // We check if it's an object and NOT a standard Gemini response (which has .text/candidates)
+            // A simple heuristic is: if it doesn't have .text property/method, treat as object.
+
+            let parsedData;
+            const hasTextMethod = rawResponse && (typeof rawResponse.text === 'function' || typeof rawResponse.text === 'string');
+
+            if (!hasTextMethod && rawResponse && typeof rawResponse === 'object') {
+                // Assume it's the pre-parsed object (from GroqAnalyzer/Hybrid)
+                parsedData = rawResponse;
+            } else if (hasTextMethod) {
+                // Case B: Raw Gemini Response
+                let responseText = typeof rawResponse.text === 'function' ? rawResponse.text() : rawResponse.text;
+
+                // Strip Markdown code blocks (```json ... ```)
+                const cleanText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+                try {
+                    parsedData = JSON.parse(cleanText);
+                } catch (e) {
+                    console.error(`[${reqId}] FAIL JSON PARSE. Raw:`, responseText.substring(0, 500));
+                    throw new AIOutputError("Malformed JSON received from AI.");
+                }
             } else {
                 throw new AIOutputError("Empty response from AI model.");
             }
 
-            // Strip Markdown code blocks (```json ... ```)
-            const cleanText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-
-            let parsedData;
-            try {
-                parsedData = JSON.parse(cleanText);
-            } catch (e) {
-                console.error(`[${reqId}] FAIL JSON PARSE. Raw:`, responseText.substring(0, 500));
-                throw new AIOutputError("Malformed JSON received from AI.");
-            }
 
             const result = validatorFn(parsedData);
             console.info(`[${reqId}] SUCCESS op=${operationName}`);
@@ -680,7 +689,8 @@ ${JSON.stringify([ONE_SHOT_DIAGNOSTIC_EXAMPLE], null, 2)}
                 systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: "application/json",
                 responseSchema: analysisResponseSchema,
-                ...GENERATION_CONFIG
+                ...GENERATION_CONFIG,
+                maxOutputTokens: 8192
             }
         }),
         (data) => {
