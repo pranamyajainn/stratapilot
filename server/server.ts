@@ -748,7 +748,7 @@ If the audience is specific, target channels they use.
  * Feature flag for hybrid analysis mode
  * Set to true to use Gemini for visual extraction + Groq for strategic analysis
  */
-const USE_HYBRID_ANALYSIS = process.env.USE_HYBRID_ANALYSIS === 'true';
+const USE_HYBRID_ANALYSIS = process.env.USE_HYBRID_ANALYSIS === 'true' || !!process.env.GROQ_API_KEYS || !!process.env.GROQ_API_KEY;
 
 /**
  * Hybrid analysis: Gemini extracts visuals, Groq generates strategic insights
