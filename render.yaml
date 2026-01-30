@@ -4,8 +4,8 @@ services:
     env: docker
     plan: starter # Paid plan required for disks
     region: oregon # or ohio, frankfurt, etc.
-    buildCommand: docker build -t stratapilot .
-    startCommand: npm start
+    region: oregon # or ohio, frankfurt, etc.
+
     envVars:
       - key: NODE_ENV
         value: production
