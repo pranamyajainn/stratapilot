@@ -4,8 +4,6 @@ services:
     env: docker
     plan: starter # Paid plan required for disks
     region: oregon # or ohio, frankfurt, etc.
-    region: oregon # or ohio, frankfurt, etc.
-
     envVars:
       - key: NODE_ENV
         value: production
