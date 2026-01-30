@@ -51,13 +51,17 @@ ENV DATA_DIR="/data"
 
 # Dependency installation
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+# Install ALL dependencies (including dev) so we can run the build script
+RUN npm ci
 
 # Copy app source
 COPY . .
 
-# Build frontend (if served by same backend) or just compile TS
+# Build frontend/types
 RUN npm run build --if-present
+
+# Prune dev dependencies to keep the image small
+RUN npm prune --production
 
 # Env vars
 ENV NODE_ENV=production
