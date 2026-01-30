@@ -18,7 +18,8 @@ export async function generatePdfFromPrintRoute(token: string): Promise<Buffer> 
             const page = await browser.newPage();
             console.log('[PDF_STEP_4] New page created');
 
-            const url = `http://localhost:3000/report/print?token=${token}`;
+            const port = process.env.PORT || 3000;
+            const url = `http://localhost:${port}/report/print?token=${token}`;
             console.log('[PDF_STEP_5] Starting navigation to: ' + url);
             console.log(`[PDF_DEBUG] Token (first 8 chars): ${token.substring(0, 8)}`);
 
