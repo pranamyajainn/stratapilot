@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: stratapilot
+    env: docker
+    plan: starter # Paid plan required for disks
+    region: oregon # or ohio, frankfurt, etc.
+    buildCommand: docker build -t stratapilot .
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PUPPETEER_executable_path
+        value: /usr/bin/chromium
+      - key: PORT
+        value: 10000
+      - key: DATABASE_PATH
+        value: /data/insights.db
+      # Add other secrets (GEMINI_API_KEY, etc.) in the Dashboard or syncGroup
+    disk:
+      name: strata-data
+      mountPath: /data
+      sizeGB: 1
