@@ -250,12 +250,20 @@ const safeGenerate = async <T>(
                 let responseText = typeof rawResponse.text === 'function' ? rawResponse.text() : rawResponse.text;
 
                 // Strip Markdown code blocks (```json ... ```)
-                const cleanText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+                let cleanText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+                // Robustness: Extract JSON object if surrounded by text
+                const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    cleanText = jsonMatch[0];
+                }
+
+
 
                 try {
                     parsedData = JSON.parse(cleanText);
                 } catch (e) {
-                    console.error(`[${reqId}] FAIL JSON PARSE. Raw:`, responseText.substring(0, 500));
+                    console.error(`[${reqId}] FAIL JSON PARSE. Raw (first 1000 chars):`, responseText.substring(0, 1000));
                     throw new AIOutputError("Malformed JSON received from AI.");
                 }
             } else {
@@ -683,7 +691,7 @@ ${JSON.stringify([ONE_SHOT_DIAGNOSTIC_EXAMPLE], null, 2)}
     return safeGenerate<AnalysisResult>(
         "analyzeCollateral",
         () => getAIClient().models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: { parts: parts },
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
