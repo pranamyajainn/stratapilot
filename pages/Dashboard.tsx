@@ -369,6 +369,8 @@ export const Dashboard: React.FC = () => {
     const [ga4Connected, setGa4Connected] = useState(false);
     const [metaConnected, setMetaConnected] = useState(false);
     const [activeModal, setActiveModal] = useState<IntegrationType | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const recognitionRef = useRef<any>(null);
@@ -384,6 +386,32 @@ export const Dashboard: React.FC = () => {
         }
         return () => clearInterval(interval);
     }, [loadingState]);
+
+    // Auto-save effect
+    useEffect(() => {
+        if (!result?.auditId) return;
+
+        const timer = setTimeout(async () => {
+            try {
+                setIsSaving(true);
+                const res = await fetch(`/api/insights/${result.auditId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ analysis: result })
+                });
+                if (res.ok) {
+                    setLastSaved(new Date());
+                    console.log('[AUTO-SAVE] Success');
+                }
+            } catch (err) {
+                console.error('[AUTO-SAVE] Failed', err);
+            } finally {
+                setIsSaving(false);
+            }
+        }, 2000); // Debounce 2s
+
+        return () => clearTimeout(timer);
+    }, [result]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -831,7 +859,22 @@ export const Dashboard: React.FC = () => {
                 {result && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
                         <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-slate-200 shadow-xl shadow-indigo-900/5">
-                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 flex items-center gap-2"> <Layers size={12} className="text-indigo-500" /> Quick Navigation Index </h4>
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2"> <Layers size={12} className="text-indigo-500" /> Quick Navigation Index </h4>
+                                {(isSaving || lastSaved) && (
+                                    <div className="flex items-center gap-2">
+                                        {isSaving ? (
+                                            <span className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 animate-pulse">
+                                                <RefreshCw size={10} className="animate-spin" /> Saving...
+                                            </span>
+                                        ) : (
+                                            <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 animate-in fade-in">
+                                                <CheckCircle2 size={10} /> Saved {lastSaved?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                             <div className="flex flex-wrap gap-2">
                                 {sectionDividers.map((label, idx) => (<button key={idx} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[9px] font-bold text-slate-600 hover:bg-indigo-600 hover:border-indigo-500 hover:text-white hover:shadow-lg transition-all whitespace-nowrap"> {label} </button>))}
                             </div>

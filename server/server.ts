@@ -1281,7 +1281,9 @@ app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunct
         const cacheResult = await checkCache(contentHash, analysisLabel);
         if (cacheResult.hit) {
             console.log(`[CACHE] Returning cached URL result (Industry: ${cacheResult.record?.industry})`);
-            return res.json({ success: true, data: cacheResult.analysis, cached: true });
+            const data = cacheResult.analysis;
+            if (cacheResult.record) data.auditId = cacheResult.record.id;
+            return res.json({ success: true, data, cached: true });
         }
 
         const tempFileName = `${uuidv4()}.mp4`; // Default extension, might change
@@ -1354,7 +1356,10 @@ app.post('/api/analyze-url', async (req: Request, res: Response, next: NextFunct
         const result = await analyzeCollateralSmart(fullContext, analysisLabel, null, mimeType || 'video/mp4', fileUri);
 
         // Store in cache
-        await storeInCache(contentHash, analysisLabel, result, { sourceUrl: videoUrl, mimeType: mimeType || 'video/mp4' });
+        const record = await storeInCache(contentHash, analysisLabel, result, { sourceUrl: videoUrl, mimeType: mimeType || 'video/mp4' });
+
+        // Inject DB ID for persistence
+        result.auditId = record.id;
 
         res.json({ success: true, data: result, cached: false });
 
@@ -1392,7 +1397,9 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
         if (cacheResult.hit) {
             console.log(`[CACHE] Returning cached result (Industry: ${cacheResult.record?.industry})`);
             console.log(`[RUNTIME-VERIFY] ===== CACHE HIT - RETURNING CACHED RESULT =====`);
-            return res.json({ success: true, data: cacheResult.analysis, cached: true });
+            const data = cacheResult.analysis;
+            if (cacheResult.record) data.auditId = cacheResult.record.id;
+            return res.json({ success: true, data, cached: true });
         }
 
         // Fetch External Data
@@ -1486,7 +1493,10 @@ app.post('/api/analyze', async (req: Request, res: Response, next: NextFunction)
 
 
         // Store result in cache
-        await storeInCache(contentHash, analysisLabel, result, { mimeType });
+        const record = await storeInCache(contentHash, analysisLabel, result, { mimeType });
+
+        // Inject DB ID for persistence
+        result.auditId = record.id;
 
         res.json({ success: true, data: result, cached: false });
     } catch (error) {
