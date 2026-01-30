@@ -36,7 +36,7 @@ export async function generatePdfFromPrintRoute(token: string): Promise<Buffer> 
             // Navigate to the print route on localhost:3000
             await page.goto(url, {
                 waitUntil: 'networkidle0',
-                timeout: 60000
+                timeout: 120000 // Increase to 2 mins for cold starts
             });
             console.log('[PDF_STEP_6] Navigation completed successfully (networkidle0)');
 
@@ -45,7 +45,7 @@ export async function generatePdfFromPrintRoute(token: string): Promise<Buffer> 
             // Wait for the print route to signal it's ready
             await page.waitForFunction(
                 () => (window as any).printReady === true,
-                { timeout: 60000 }
+                { timeout: 120000 } // Increase to 2 mins
             );
             console.log('[PDF_STEP_8] printReady signal received');
 
@@ -91,6 +91,7 @@ export async function generatePdfFromPrintRoute(token: string): Promise<Buffer> 
                 displayHeaderFooter: true,
                 headerTemplate: headerTemplate,
                 footerTemplate: footerTemplate,
+                timeout: 120000, // Explicitly set PDF generation timeout to 2 mins
                 margin: {
                     top: '30mm',      // Increased space for header
                     right: '15mm',
