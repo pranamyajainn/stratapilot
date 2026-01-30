@@ -234,14 +234,23 @@ const safeGenerate = async <T>(
         try {
             const rawResponse = await generatorFn();
 
-            if (!rawResponse || !rawResponse.text) {
+            let responseText = "";
+            if (rawResponse && typeof rawResponse.text === 'function') {
+                responseText = rawResponse.text();
+            } else if (rawResponse && rawResponse.text) {
+                responseText = rawResponse.text;
+            } else {
                 throw new AIOutputError("Empty response from AI model.");
             }
 
+            // Strip Markdown code blocks (```json ... ```)
+            const cleanText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+
             let parsedData;
             try {
-                parsedData = JSON.parse(rawResponse.text);
+                parsedData = JSON.parse(cleanText);
             } catch (e) {
+                console.error(`[${reqId}] FAIL JSON PARSE. Raw:`, responseText.substring(0, 500));
                 throw new AIOutputError("Malformed JSON received from AI.");
             }
 
