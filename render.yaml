@@ -2,7 +2,8 @@ services:
   - type: web
     name: stratapilot
     env: docker
-    plan: starter # Paid plan required for disks
+    plan: free # Free tier (Ephemeral filesystem - DB will reset on restart)
+
     region: oregon # or ohio, frankfurt, etc.
     envVars:
       - key: NODE_ENV
@@ -14,7 +15,4 @@ services:
       - key: DATABASE_PATH
         value: /data/insights.db
       # Add other secrets (GEMINI_API_KEY, etc.) in the Dashboard or syncGroup
-    disk:
-      name: strata-data
-      mountPath: /data
-      sizeGB: 1
+
