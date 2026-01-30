@@ -1110,7 +1110,13 @@ const analyzeCollateralSmart = async (
     if (USE_HYBRID_ANALYSIS) {
         console.log('[ROUTER] Using HYBRID mode (Gemini + Groq)');
         console.log(`[RUNTIME-VERIFY] Routing to: analyzeCollateralHybrid`);
-        result = await analyzeCollateralHybrid(textContext, analysisLabel, fileData, mimeType, fileUri, secondaryVideoUrl);
+        try {
+            result = await analyzeCollateralHybrid(textContext, analysisLabel, fileData, mimeType, fileUri, secondaryVideoUrl);
+        } catch (error: any) {
+            console.warn(`[ROUTER] HYBRID MODE FAILED: ${error.message}`);
+            console.warn('[ROUTER] Falling back to LEGACY mode (Gemini only)...');
+            result = await analyzeCollateral(textContext, analysisLabel, fileData, mimeType, fileUri);
+        }
     } else {
         console.log('[ROUTER] Using LEGACY mode (Gemini only)');
         console.log(`[RUNTIME-VERIFY] Routing to: analyzeCollateral (legacy)`);
