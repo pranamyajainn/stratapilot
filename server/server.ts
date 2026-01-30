@@ -79,8 +79,8 @@ const validateEnvironment = (): void => {
     }
 
     // Optional - Warn only
-    if (!process.env.GROQ_API_KEY) {
-        warnings.push('GROQ_API_KEY not set - hybrid analysis disabled');
+    if (!process.env.GROQ_API_KEYS && !process.env.GROQ_API_KEY) {
+        warnings.push('GROQ_API_KEYS not set - hybrid analysis disabled');
     }
 
     // Log status
